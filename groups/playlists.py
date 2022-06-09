@@ -2,13 +2,24 @@ from discord import app_commands as slash
 from discord.ui import TextInput
 
 import discord
-import resources as res
-from resources import Playlist, IDENTIFIER
+import json
+
+import ui
+from models import Playlist
 
 
+with open('database/playlist_cache.json') as f:
+    cached_playlists: dict[str, dict[str, int]] = json.load(f)
 
 def create_playlist(name: str, interaction: discord.Interaction, password: str | None = None) -> Playlist:
-    return Playlist(name, interaction.user, interaction.guild, password=password, private=password is not None) # type: ignore
+    return Playlist(name, interaction, password=password) # type: ignore
+
+async def autocomplete(interaction: discord.Interaction, current: str) -> list[slash.Choice[str]]:
+    return [
+        slash.Choice(name=playlist, value=playlist) 
+        for playlist, data in cached_playlists.items() 
+        if (data['guild'] == interaction.guild.id or data['author'] == interaction.user.id) and current.lower() in playlist.lower() # type: ignore
+        ] 
 
 
 
@@ -18,8 +29,8 @@ class MNewPlaylist(discord.ui.Modal, title='Create a Playlist'):
     password = TextInput(label='Playlist Password Leave Empty to Keep it Free', placeholder='Password', required=False, min_length=8)
     # url = TextInput(label='External Url', placeholder='Url', required=False, min_length=25)
 
-    async def callback(self, interaction: discord.Interaction):
-        if Playlist.existing(interaction.guild.id, str(self.name)): # type: ignore
+    async def on_submit(self, interaction: discord.Interaction):
+        if Playlist.existing(interaction, str(self.name)): # type: ignore
             await interaction.response.send_message('This playlist already exists!', ephemeral=True)
             return
 
@@ -31,67 +42,28 @@ class MNewPlaylist(discord.ui.Modal, title='Create a Playlist'):
 
 class Playlists(slash.Group):
 
-    def __init__(self, client: discord.Client):
-        super().__init__()
-        self.client = client
-
-    
     @slash.command(name='new', description='Creates a playlist.')
     async def new_playlist(self, interaction: discord.Interaction) -> None:
-
         modal = MNewPlaylist()
         await interaction.response.send_modal(modal)
+        
+        global cached_playlists
+        with open('database/playlist_cache.json') as f:
+            cached_playlists = json.load(f)
 
 
     @slash.command(name='show', description='Shows a playlist. If the playlist is private it will be sent as a private message.')
-    @slash.describe(name='The name of the playlist.', id='The id of the playlist you want to edit.')
-    async def show_playlist(self, interaction: discord.Interaction, name: str | None = None, id: int | None = None) -> None:
-        reference: IDENTIFIER
+    @slash.describe(name='The name of the playlist.')
+    @slash.autocomplete(name=autocomplete)
+    async def show_playlist(self, interaction: discord.Interaction, name: str) -> None:
 
-        if name is None and id is None:
-            await interaction.response.send_message(
-                embed=discord.Embed(
-                    title="Missing Parameters!", 
-                    description=f'You have to include either the name or the id of the playlist!', 
-                    color=discord.Color.red()
-                    ),
-                ephemeral=True
-                )
-            return
+        playlist = await Playlist.from_database(interaction, name)      
 
-        reference = name or id  # type: ignore
-
-        playlist = Playlist.from_database(interaction.guild.id, reference) # type: ignore
-
-        if playlist is None:
-            await interaction.response.send_message(
-                embed=discord.Embed(
-                    title="Couldn't find anything :c", 
-                    description=f'Searching for `{reference}` into database returned no result.', 
-                    color=discord.Color.red()
-                    )
-                )
-            return
-
-        # When fetching from database author and guild are set as their own IDs
-        # so here I convert them
-        playlist.author = await self.client.fetch_user(playlist.author) # type: ignore
-        playlist.guild = await self.client.fetch_guild(playlist.guild) # type: ignore
-
-        
-
-        pEmbed = discord.Embed(
-            title=playlist.name,
-            description=f"by {playlist.author.display_name}",
-            color=discord.Color.blurple()
-        )
-        pView = res.VPlaylist(playlist)
-        for song in playlist.songs:
-            pEmbed.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
+        pView = ui.PlaylistPaginator(playlist)
 
         if playlist.private:
-            await interaction.response.pong()
-            await interaction.user.send(embed=pEmbed, view=pView)
+            await interaction.response.send_message('The playlist has been sent you in DMs.')
+            await interaction.user.send(embed=playlist.embeds[0], view=pView)
             return  
 
-        await interaction.response.send_message(embed=pEmbed, view=pView) 
+        await interaction.response.send_message(embed=playlist.embeds[0], view=pView) 

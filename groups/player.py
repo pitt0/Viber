@@ -1,15 +1,15 @@
+from typing import TypeAlias
 from discord import app_commands as slash
 from discord.ext import commands
 
 import discord
 
-from resources import Song, ESong, MusicPlayer
-from resources import GUILD_ID
-from resources.utils import youtube
+from models import Song, MusicPlayer
+from models.utils import youtube
 
 
 
-
+GUILD_ID: TypeAlias = int
 
 
 class Player(slash.Group):
@@ -24,7 +24,11 @@ class Player(slash.Group):
         me = await self.client.fetch_user(648939655579828226)
         await me.send(text)
 
-    async def send_error_message(self, cause: str, ephemeral: bool, interaction: discord.Interaction) -> None:
+    def can_connect(self, interaction: discord.Interaction) -> bool:
+        assert not isinstance(interaction.user, discord.User)
+        return interaction.user.voice is not None and isinstance(interaction.user.voice.channel, discord.VoiceChannel)
+
+    async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
         _embed = discord.Embed(
             title='Something went wrong',
             description=cause,
@@ -35,31 +39,11 @@ class Player(slash.Group):
         else:
             await interaction.response.send_message(embed=_embed, ephemeral=ephemeral)
 
-    async def create_player(self, guild: discord.Guild, voice: discord.VoiceChannel | None) -> None:
-        if guild.id not in self.players:
-            _player = MusicPlayer(guild)
-            self.players[guild.id] = _player
-
-        else:
-            _player = self.players[guild.id]
-
-        await _player.connect(voice or _player.voiceClient.channel) # type: ignore
+    async def create_player(self, guild: discord.Guild, voice: discord.VoiceChannel) -> None:
+        _player = MusicPlayer(guild)
+        self.players[guild.id] = _player
+        await _player.connect(voice or _player.voice_client.channel)
         return
-
-
-    async def search_song(self, reference: str) -> Song | None:
-        if reference.startswith('http'):
-            song = Song.from_youtube(reference)
-            if song is None:
-                return 
-        else:
-            urls = youtube.search_urls(reference)
-            if urls is None:
-                return
-            # TODO: Add an IA that parses through all the urls to see if is there any preferred one
-            song = Song.from_youtube(urls[0])
-        
-        return song
 
     # async def change_presence(self, song: Song) -> None:
     #     activity = discord.Activity(name=song.title, type=discord.ActivityType.listening)
@@ -89,52 +73,56 @@ class Player(slash.Group):
         if guild.id not in self.players: 
             return
         _player = self.players[guild.id]
-        await _player.voice_update(before, after) 
+        await _player.voice_update(before, after)
         
 
     @slash.command(name='connect', description='Connects to a voice channel')
     @slash.check(lambda interaction: interaction.guild is not None)
     @slash.describe(channel='The channel to which you want the bot to connect')
     async def connect(self, interaction: discord.Interaction, channel: discord.VoiceChannel | None = None):
-        if isinstance(interaction.user, discord.User): # should never happen
-            await self.send_me(f'`interaction.user` was `discord.User`.\nServer: {interaction.guild}\nUser: {interaction.user}')
-            return
+        assert not isinstance(interaction.user, discord.User) and interaction.guild is not None
+        _channel: discord.VoiceChannel
         
         if channel is None:
-            if interaction.user.voice is None or not isinstance(interaction.user.voice.channel, discord.VoiceChannel):
-                await self.send_error_message('Could not connect to a voice channel, try to specify one or connect to one.', True, interaction)
+            if not self.can_connect(interaction):
+                await self.send_error_message(interaction, cause='Could not connect to a voice channel, try to specify one or connect to one.', ephemeral=True)
                 return
-            channel = interaction.user.voice.channel
+            _channel = interaction.user.voice.channel # type: ignore[valid-type]
+        else:
+            _channel = channel
 
-        await self.create_player(interaction.guild, channel) # type: ignore 
+        await self.create_player(interaction.guild, _channel)
 
 
     @slash.command(name='play', description='Plays a song in the server.')
     @slash.check(lambda interaction: isinstance(interaction.channel, discord.TextChannel))
     @slash.describe(reference='A song reference')
     async def play(self, interaction: discord.Interaction, reference: str):
-        assert interaction.guild is not None
-
-        if isinstance(interaction.user, discord.User): # should never happen
-            await self.send_me(f'`interaction.user` was `discord.User`.\nServer: {interaction.guild}\nUser: {interaction.user}')
-            return 
+        assert not isinstance(interaction.user, discord.User) and interaction.guild is not None
+        channel: discord.VoiceChannel
 
         await interaction.response.defer()
 
-        try:
-            await self.create_player(interaction.guild, interaction.user.voice.channel if interaction.user.voice else None) # type: ignore[valid-type]
-        except Exception as e:
-            raise e
+        if interaction.guild.id not in self.players:
+            if not self.can_connect(interaction):
+                await self.send_error_message(interaction, cause='Could not connect to a voice channel, try to specify one or connect to one.', ephemeral=True)
+                return
+            channel = interaction.user.voice.channel # type: ignore[valid-type]
+            await self.create_player(interaction.guild, channel)
 
-        if reference.startswith('http') and ('youtube.com' not in reference and 'youtu.be' not in reference):
-            await interaction.followup.send('I only accept youtube links.', ephemeral=True)
-            return
+        title = reference
+        if reference.startswith('http'):
+            if ('youtube.com' not in reference and 'youtu.be' not in reference):
+                await interaction.followup.send('I only accept youtube links.', ephemeral=True)
+                return
+        else:
+            urls = youtube.search_urls(reference)
+            if urls is None:
+                await interaction.followup.send('Could not find anything.')
+                return
+            title = urls[0]
         
-        song = await self.search_song(reference)
-        if song is None:
-            await interaction.followup.send('Could not find anything.')
-            return
+        song = Song.from_youtube(title)
 
-        song_embed = ESong(song, False)
-        await interaction.followup.send('Now playing.', embed=song_embed)
+        await interaction.followup.send('Now playing.', embed=song.embed)
         await self.players[interaction.guild.id].add_song(song)

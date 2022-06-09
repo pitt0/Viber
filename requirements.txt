@@ -3,4 +3,3 @@ discord.py
 
 # system
 python-dotenv
-pytz
