@@ -45,10 +45,6 @@ class Player(slash.Group):
         await _player.connect(voice or _player.voice_client.channel)
         return
 
-    # async def change_presence(self, song: Song) -> None:
-    #     activity = discord.Activity(name=song.title, type=discord.ActivityType.listening)
-    #     await self.client.change_presence(activity=activity)
-
     @commands.Cog.listener()
     async def on_error(self, interaction: discord.Interaction, error: slash.CommandInvokeError):
         await self.send_me(f"There's been an error on command {interaction.command.name}.\nError: {error.__class__.__name__}\n          {error}.") # type: ignore

@@ -161,7 +161,7 @@ class Playlist(BasePlaylist):
     def update(self) -> None:
         with Connector() as cur:
             cur.execute(f"""
-            UPDATE TABLE Playlists
+            UPDATE Playlists
             SET Title='{self.name}',
                 Author={self.author.id},
                 Keyword='{self.password}',

@@ -59,7 +59,11 @@ class PlaylistPaginator(discord.ui.View):
         view = PlaylistSettings(self.playlist)
         await interaction.response.edit_message(view=view)
         await view.wait()
-        await interaction.followup.edit_message(interaction.message.id, view=self) # type: ignore
+        try:
+            view = PlaylistPaginator(self.playlist)
+            await interaction.followup.edit_message(interaction.message.id, view=view) # type: ignore
+        except discord.HTTPException:
+            pass
 
 
 
@@ -73,24 +77,37 @@ class PlaylistSettings(discord.ui.View):
     async def advanced(self, interaction: discord.Interaction, _) -> None:
         if interaction.user != self.playlist.author:
             await interaction.response.send_message('You cannot complete this action, only the author of the playlist can.', ephemeral=True)
+            self.stop()
             return
         await interaction.response.edit_message(view=PlaylistAdvancedSettings(self.playlist))
+        self.stop()
+
 
     @discord.ui.button(label='Songs')
     async def songs(self, interaction: discord.Interaction, _) -> None:
         if self.playlist.private:
-            await interaction.response.send_message(f'You cannot complete this actionneoiahnetiou bEI') # TODO: Ask for password
-        await interaction.response.edit_message()
+            while True:
+                modal = AskPassword(self.playlist)
+                await interaction.response.send_modal(modal)
+                await modal.wait()
+                if modal.result:
+                    break
+        view = SongManager(self.playlist)
+        await interaction.response.edit_message(view=view)
+        await view.wait()
+        self.stop()
 
     @discord.ui.button(label='Delete', style=discord.ButtonStyle.red)
     async def delete(self, interaction: discord.Interaction, _) -> None:
         if interaction.user != self.playlist.author:
             await interaction.response.send_message('You cannot complete this action, only the author of the playlist can.', ephemeral=True)
+            self.stop()
             return
 
         modal = DeletePlaylist(self.playlist)
         await interaction.response.send_modal(modal)
         await interaction.message.delete() # type: ignore
+        self.stop()
         
 class PlaylistAdvancedSettings(discord.ui.View):
 
@@ -108,14 +125,26 @@ class PlaylistAdvancedSettings(discord.ui.View):
     @discord.ui.button() # label will be added in __init__
     async def edit_state(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if button.label == 'Lock':
-            await interaction.response.send_modal(LockPlaylist(self.playlist))
+            modal = LockPlaylist(self.playlist)
+            await interaction.response.send_modal(modal)
+            await modal.wait()
             await interaction.message.delete() # type: ignore
         else:
-            await interaction.response.send_modal(UnlockPlaylist(self.playlist))
+            modal = UnlockPlaylist(self.playlist)
+            await interaction.response.send_modal(modal)
+            await modal.wait()
+        self.stop()
 
     @discord.ui.button(label='Rename')
     async def rename(self, interaction: discord.Interaction, _) -> None:
-        await interaction.response.send_modal(RenamePlaylist(self.playlist))
+        modal = RenamePlaylist(self.playlist)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        message = await interaction.original_message()
+        embed = message.embeds[0]
+        embed.title = modal.result
+        await interaction.followup.edit_message(message.id, embed=embed)
+        self.stop()
 
 class SongManager(discord.ui.View):
 
@@ -127,4 +156,14 @@ class SongManager(discord.ui.View):
 
     @discord.ui.button(label='Add')
     async def add_song(self, interaction: discord.Interaction, _) -> None:
-        await interaction.response.send_modal(AddSong(self.playlist))
+        modal = AddSong(self.playlist)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        self.stop()
+
+    @discord.ui.button(label='Remove')
+    async def remove_song(self, interaction: discord.Interaction, _) -> None:
+        modal = RemoveSong(self.playlist)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        self.stop()
