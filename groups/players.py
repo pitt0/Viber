@@ -165,7 +165,7 @@ class Player(slash.Group):
     @slash.command(name='leave', description='Disconnects from the voice channel.')
     @slash.check(lambda interaction: interaction.guild is not None)
     async def disconnect(self, interaction: discord.Interaction):
-        assert not isinstance(interaction.user, discord.User) and interaction.guild is not None
+        assert interaction.guild is not None
 
         if interaction.guild.id not in self.players:
             await interaction.response.send_message("I'm not currently connected to any voice channel.", ephemeral=True)
@@ -175,3 +175,21 @@ class Player(slash.Group):
         channel = player.voice_client.channel
         await player.disconnect()
         await interaction.response.send_message(f'Disconnected from {channel.mention}')
+
+    @slash.command(name='queue', description='Sends a queue embed')
+    @slash.check(lambda interaction: interaction.guild is not None)
+    async def queue(self, interaction: discord.Interaction):
+        assert interaction.guild is not None
+       
+        if interaction.guild.id not in self.players or len(self.players[interaction.guild.id].queue) == 0:
+            await interaction.response.send_message("I'm not currenly streaming any music.", ephemeral=True)
+            return 
+        
+        embed = discord.Embed(
+            title="Queue",
+            color=discord.Color.orange()
+        )
+        for song, _, _ in self.players[interaction.guild.id].queue:
+            embed.add_field(name=song.title, value=song.author, inline=False) # type: ignore
+        
+        await interaction.response.send_message(embed=embed)

@@ -153,7 +153,10 @@ class MusicPlayer:
         self.player.next.disabled = not len(self.queue) > 0
         self.player.shuffle.disabled = not len(self.queue) > 2
         try:
-            await self.player.message.edit(view=self.player)
+            if self.player.message.embeds[0] == self.embed:
+                await self.player.message.edit(view=self.player)
+            else:
+                await self.player.message.edit(embed=self.embed, view=self.player)
         except RuntimeError:
             return
 
@@ -275,8 +278,6 @@ class MusicPlayer:
         self.voice_client.play(source, after=self.__next)
         if not self.player.message:
             self.player.message = await self.channel.send(embed=self.embed, view=self.player)
-        else:
-            await self.player.message.edit(embed=self.embed, view=self.player)
     
     async def play_cached(self, reference, interaction) -> None:
         _, source, requester = self.queue[0]
@@ -291,8 +292,6 @@ class MusicPlayer:
         await interaction.followup.send("Added to Queue.", embed=song.embed)
         if not self.player.message:
             self.player.message = await self.channel.send(embed=self.embed, view=self.player)
-        else:
-            await self.player.message.edit(embed=self.embed, view=self.player)
 
     async def pause(self,) -> None:
         self.voice_client.pause()
