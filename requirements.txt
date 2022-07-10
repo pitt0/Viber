@@ -1,5 +1,6 @@
 # discord
 discord.py
+PyNaCl
 
 # system
 python-dotenv
