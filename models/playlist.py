@@ -28,6 +28,12 @@ class BasePlaylist:
     def __eq__(self, __o: object) -> bool:
         return isinstance(__o, self.__class__) and __o.id == self.id
 
+    def __ne__(self, __o: object) -> bool:
+        return not self.__eq__(__o)
+
+    def __repr__(self) -> str:
+        return f'{self.name}#{self.id}'
+
     def __iter__(self):
         return (song for song in self.songs)
 
@@ -153,10 +159,8 @@ class Playlist(BasePlaylist):
         with Connector() as cur:
             cur.execute(f"""INSERT INTO Playlists (ID, Title, Locked, Keyword, Author, Guild) 
             VALUES ({self.id}, ?, {self.private}, ?, ?, ?);""", (self.name, self.password, self.author.id, self.guild.id))
-        with PlaylistCacheReader() as ps:
+        with PlaylistCache() as ps:
             ps[self.name] = self.guild.id
-        with PlaylistCacheEditor() as f:
-            json.dump(ps, f, indent=4)
 
     def update(self) -> None:
         with Connector() as cur:
@@ -175,16 +179,14 @@ class Playlist(BasePlaylist):
         with Connector() as cur:
             cur.execute(f"DELETE FROM Playlists WHERE ID={self.id};")
             cur.execute(f"DELETE FROM Songs WHERE PlaylistID={self.id};")
-        with PlaylistCacheReader() as ps:
+        with PlaylistCache() as ps:
             del ps[self.name]
-        with PlaylistCacheEditor() as f:
-            json.dump(ps, f, indent=4)
 
 
     @classmethod
     async def from_database(cls, interaction: discord.Interaction, reference: str) -> 'Playlist':
         with Connector() as cur:
-            cur.execute(f"SELECT * FROM Playlists WHERE Title=? AND Guild=? OR Author=?;", (reference, interaction.guild.id, interaction.user.id)) # type: ignore
+            cur.execute(f"SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (reference, interaction.guild.id, interaction.user.id)) # type: ignore
             playlist = cur.fetchone()
 
             cur.execute(f"SELECT * FROM Songs WHERE PlaylistID={playlist[0]};")

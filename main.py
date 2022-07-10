@@ -10,7 +10,7 @@ import pytz
 # slash groups
 from groups.playlists import Playlists
 from groups.advices import AdviceList
-from groups.player import Player
+from groups.players import Player
 
 client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)

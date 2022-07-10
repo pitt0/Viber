@@ -1,30 +1,20 @@
+from typing import TYPE_CHECKING
 import discord
 
-from models import Song, search
-from models.utils import SearchingException
+if TYPE_CHECKING:
+    from models import Song
 
 
-
-async def choose(interaction: discord.Interaction, reference: str):
-    try:
-        songs = search(reference)
-    except SearchingException as e:
-        await interaction.response.send_message(embed=discord.Embed(title=e.name, description=e, color=discord.Color.dark_red()), ephemeral=True)
-        return
-    view = VSong(songs, choice=True)
-    await interaction.response.send_message(embed=songs[0].embed, view=view, ephemeral=True)
-    await view.wait()
-    return view.current_song
 
 
 class VSong(discord.ui.View):
 
     children: list[discord.ui.Button]
 
-    def __init__(self, songs: list[Song], choice: bool = False):
+    def __init__(self, songs: list['Song'], choice: bool = False):
         super().__init__()
         self.songs = songs
-        self.current_song: Song = self.songs[0]
+        self.current_song: 'Song' = self.songs[0]
         if not choice:
             self.remove_item(self.children[-1])
         self.index = 0
@@ -73,5 +63,8 @@ class VSong(discord.ui.View):
         self.index = len(self.songs) - 1
 
         await interaction.response.defer()
-        await interaction.message.delete() # type: ignore
+        try:
+            await interaction.message.delete() # type: ignore
+        except discord.NotFound:
+            print('message not found')
         self.stop()

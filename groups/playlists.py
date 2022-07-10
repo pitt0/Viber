@@ -56,14 +56,17 @@ class Playlists(slash.Group):
     @slash.describe(name='The name of the playlist.')
     @slash.autocomplete(name=autocomplete)
     async def show_playlist(self, interaction: discord.Interaction, name: str) -> None:
+        await interaction.response.defer()
+        print(name)
 
-        playlist = await Playlist.from_database(interaction, name)      
+        playlist = await Playlist.from_database(interaction, name) 
+        print(playlist)     
 
         pView = ui.PlaylistPaginator(playlist)
 
         if playlist.private:
-            await interaction.response.send_message('The playlist has been sent you in DMs.')
+            await interaction.followup.send('The playlist has been sent you in DMs.')
             await interaction.user.send(embed=playlist.embeds[0], view=pView)
             return  
 
-        await interaction.response.send_message(embed=playlist.embeds[0], view=pView) 
+        await interaction.followup.send(embed=playlist.embeds[0], view=pView) 

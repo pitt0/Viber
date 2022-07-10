@@ -1,12 +1,13 @@
 from dataclasses import dataclass
-from typing import Generator
 
 import discord
 import json
 
 from .utils import (
-    BadRequest,
     Connector,
+    SongCache,
+
+    BadRequest,
     NotFound,
     WrongLink
 )
@@ -14,29 +15,37 @@ from .utils import (
 from .utils import spotify as sp
 from .utils import youtube as yt
 
+from ui.songs import VSong
+
 
 __all__ = (
     'Song',
-    'search'
+    'search',
+    'choose'
 )
 
 
 class SpotifyInfo(dict):
     def __init__(self, **kwargs) -> None:
-        urls = yt.search_urls(kwargs['name'] + ' ' + kwargs['artists'][0]['name'])
+        spotify = kwargs['external_urls']['spotify']
         youtube = ''
         source = ''
-        if urls:
-            youtube = urls[0]
-            with open('database/song_cache.json') as f:
-                source = json.load(f)[youtube]
+        with SongCache() as cache:
+            if spotify in cache:
+                source = cache[spotify]
+            else:
+                youtube = yt.search_urls(kwargs['name'] + ' ' + kwargs['artists'][0]['name'])[0]
+                if youtube in cache:
+                    source = cache[youtube]
+                    cache[spotify] = source
+                
         _dict = {
             'id': kwargs['id'],
             'title': kwargs['name'],
             'author': kwargs['artists'][0]['name'],
             'album': kwargs['album']['name'],
             'thumbnail': kwargs['album']['images'][0]['url'],
-            'duration': kwargs['duration_ms']*1000,
+            'duration': kwargs['duration_ms']//1000,
             'year': int(kwargs['album']['release_date'][:4]),
             'spotify': kwargs['external_urls']['spotify'],
             'youtube': youtube,
@@ -65,8 +74,8 @@ class DataInfo(dict):
     def __init__(self, *args) -> None:
         source = ''
         if args[7]:
-            with open('database/song_cache.json') as f:
-                source = json.load(f)[args[7]]
+            with SongCache() as cache:
+                source = cache[args[7]]
         _dict = {
             'id': args[0],
             'title': args[1],
@@ -84,8 +93,7 @@ class DataInfo(dict):
 def search(reference: str, playable: bool = False) -> list['Song']:
     songs: list[Song] = []
     if not reference.startswith('http'):
-        for song in Song.from_reference(reference, playable):
-            songs.append(song)
+        songs = Song.from_reference(reference, playable)
 
         if len(songs) == 0:
             raise NotFound(f'Searching `{reference}` returned no result.')
@@ -94,8 +102,11 @@ def search(reference: str, playable: bool = False) -> list['Song']:
         song = Song.from_spotify(reference)
         if song is None:
             raise WrongLink(f'(This link)[{reference}] returned no result.')
-
-        songs = [song]
+        
+        if playable and not song.source:
+            songs = Song.from_reference(f'{song.title} {song.author}', playable)
+        else:
+            songs = [song]
     
     elif 'youtu.be' in reference or 'youtube.com' in reference:
         song = Song.from_youtube(reference)
@@ -103,8 +114,28 @@ def search(reference: str, playable: bool = False) -> list['Song']:
     
     else:
         raise BadRequest(f'(This type of links)[{reference}] are not supported.')
+    
+    if playable:
+        for song in songs:
+            song.cache()
 
     return songs
+
+async def choose(interaction: discord.Interaction, reference: str, playable: bool = False):
+    songs = search(reference, playable)
+    if len(songs) == 1:
+        return songs[0]
+    view = VSong(songs, choice=True)
+    if interaction.response.is_done():
+        await interaction.followup.send(embed=songs[0].embed, view=view, ephemeral=True)
+    else:
+        await interaction.response.send_message(embed=songs[0].embed, view=view, ephemeral=True)
+    await view.wait()
+    song = view.current_song
+    if song.source != '':
+        with SongCache() as cache:
+            cache[reference] = song.source
+    return song
 
 @dataclass
 class Song:
@@ -130,16 +161,37 @@ class Song:
             description=f'{self.author} • {self.album}',
             url=self.url
         )
+        self.embed.set_thumbnail(url=self.thumbnail)
+        self.embed.add_field(name='Year', value=self.year)
+        mins = self.duration // 60
+        secs = self.duration - 60 * mins
+        self.duration = f"{mins}:{secs}" # type: ignore
+        self.embed.add_field(name='Duration', value=self.duration)
         if self.url and self.source:
-            source = {self.url: self.source}
-            with open('database/song_cache.json', 'w') as f:
-                json.dump(source, f, indent=4)
+            self.cache()
 
 
     def upload(self, playlist_id: int) -> None:
         with Connector() as cur:
             cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, PlaylistID) 
-            VALUES ({self.id}, ?, ?, ?, '{self.thumbnail}', {self.duration}, {self.year}, '{self.spotify}', '{self.youtube}', ?);""", (self.title, self.author, self.album, playlist_id))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+            (self.id, self.title, self.author, self.album, self.thumbnail, self.duration, self.year, self.spotify, self.youtube, playlist_id)
+            )
+        self.cache()
+
+    def cache(self) -> None:
+        with SongCache() as cache:
+            cache[self.url] = self.source
+
+    @staticmethod
+    def cached(reference: str) -> bool:
+        with SongCache() as cache:
+            return reference in cache
+    
+    @staticmethod
+    def load_cache(reference: str) -> str:
+        with SongCache() as cache:
+            return cache[reference]
 
     def remove(self, playlist_id: int) -> None:
         with Connector() as cur:
@@ -151,17 +203,22 @@ class Song:
         return cls(**info)
 
     @classmethod
-    def from_reference(cls, reference: str, playable: bool = False) -> Generator['Song', None, None]:
-        info = sp.search(reference)
-        if len(info['tracks']['items']) > 0 and not playable:
-            for track in info['tracks']['items']:
-                info = SpotifyInfo(**track)
-                yield cls(**info)
+    def from_reference(cls, reference: str, playable: bool = False) -> list['Song']:
+        songs = []
+        if not playable:
+            info = sp.search(reference)
+            if len(info['tracks']['items']) > 0:
+
+                for track in info['tracks']['items']:
+                    info = SpotifyInfo(**track)
+                    songs.append(cls(**info))
         else:
             results = yt.search(reference)
             for result in results:
                 info = YTInfo(**result)
-                yield cls(**info)
+                songs.append(cls(**info))
+        
+        return songs
 
     @classmethod
     def from_spotify(cls, link: str):

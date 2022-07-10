@@ -1,11 +1,12 @@
-import json
+from typing import Any
 import sqlite3 as sql
+import json
 
 
 __all__ = (
     'Connector',
-    'PlaylistCacheReader',
-    'PlaylistCacheEditor'
+    'PlaylistCache',
+    'SongCache'
 )
 
 class Connector:
@@ -20,46 +21,30 @@ class Connector:
         self.connection.commit()
         self.connection.close()
 
-class PlaylistCacheReader:
 
-    def __init__(self):
-        self.file = open('database/playlist_cache.json')
-    
-    def __enter__(self):
-        return json.load(self.file)
+class CacheFile:
 
-    def __exit__(self, *args):
-        return self.file.__exit__(*args)
+    """Opens a file in both read and write mode and when exits it automatically dumps to cache."""
 
-class PlaylistCacheEditor:
+    file: str
 
-    def __init__(self):
-        self.file = open('database/playlist_cache.json', 'w')
+    cache: dict[str, Any]
 
-    def __enter__(self):
-        return self.file.__enter__()
+    def __enter__(self) -> dict[str, Any]:
+        with open(self.file) as f:
+            self.cache = json.load(f)
+            return self.cache
 
     def __exit__(self, *args):
-        return self.file.__exit__(*args)
+        with open(self.file, 'w') as f:
+            json.dump(self.cache, f, indent=4)
 
-class SongCacheReader:
 
-    def __init__(self):
-        self.file = open('database/song_cache.json')
+class PlaylistCache(CacheFile):
 
-    def __enter__(self):
-        return json.load(self.file)
+    file = 'database/playlist_cache.json'
 
-    def __exit__(self, *args):
-        return self.file.__exit__(*args)
 
-class SongCacheEditor:
+class SongCache(CacheFile):
 
-    def __init__(self):
-        self.file = open('database/song_cache.json', 'w')
-
-    def __enter__(self):
-        return self.file.__enter__()
-
-    def __exit__(self, *args):
-        return self.file.__exit__(*args)
+    file = 'database/song_cache.json'

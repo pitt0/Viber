@@ -3,8 +3,8 @@ from discord.ui import TextInput
 
 import discord
 
-from models import Playlist
-from ..songs import choose
+from models import Playlist, choose
+from models.utils.errors import SearchingException
 
 __all__ = (
     'DeletePlaylist',
@@ -151,13 +151,28 @@ class AddSong(discord.ui.Modal):
         )
 
     async def on_submit(self, interaction: discord.Interaction):
-        song = await choose(interaction, self.children[0].value) # type: ignore
+        await interaction.response.send_message(f'Wait for the bot to search for `{self.children[0].value}`', ephemeral=True)
+        try:
+            song = await choose(interaction, self.children[0].value) # type: ignore
+        except SearchingException as e:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="There's been an error",
+                    description=e,
+                    color=discord.Color.dark_red(),
+                ),
+                ephemeral=True
+            )
+            return
         if song is None:
             await interaction.response.send_message("Couldn't find anything.", ephemeral=True)
             return
 
         self.playlist.add_song(song)
-        await interaction.response.send_message(f'`{song.title} by {song.author}` has been added to {self.playlist.name}!')
+        if interaction.response.is_done():
+            await interaction.followup.send(f'`{song.title} by {song.author}` has been added to {self.playlist.name}!')
+        else:
+            await interaction.response.send_message(f'`{song.title} by {song.author}` has been added to {self.playlist.name}!')
 
 class RemoveSong(discord.ui.Modal):
 
@@ -175,6 +190,7 @@ class RemoveSong(discord.ui.Modal):
         )
     
     async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         try:
             index = int(self.children[0].value) # type: ignore
         except ValueError:
