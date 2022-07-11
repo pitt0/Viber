@@ -1,5 +1,4 @@
 import asyncio
-from weakref import ref
 import discord
 import random
 
