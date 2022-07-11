@@ -1,5 +1,8 @@
 # discord
 discord.py
+
+# music
+geniuslyrics
 PyNaCl
 
 # system
