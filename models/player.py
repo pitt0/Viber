@@ -157,6 +157,10 @@ class MusicPlayer:
         _e.add_field(name="Duration", value=song.duration)
         return _e
 
+    @property
+    def player_message(self) -> discord.Message:
+        return self.player.message
+
     # private methods
     async def __update_player(self, view: bool = False):
         self.player.previous.disabled = not len(self.cache) > 0
@@ -188,7 +192,7 @@ class MusicPlayer:
         if len(self.queue) == 0:
             if not self.loop:
                 return
-            self.queue = self.cache # type: ignore
+            self.queue = [song for song in self.cache]
     
     def __stop(self) -> None:
         if not self.__playing.done():
@@ -279,11 +283,12 @@ class MusicPlayer:
             self.__prepare() # Sets self.__playing to True
             self.voice_client.play(source, after=self.__next)
 
-            if not isinstance(song, Song) and not self.__searching:
-                interaction, reference = song
-                song = search(reference)[0] # type: ignore
-                self.queue[0] = (song, source, requester)
-                await interaction.followup.send("Added to Queue.", embed=song.embed) # type: ignore
+            if not isinstance(song, Song): 
+                if not self.__searching:
+                    interaction, reference = song
+                    song = search(reference)[0]
+                    self.queue[0] = (song, source, requester)
+                    await interaction.followup.send("Now playing.")
 
             await self.__update_player()
             if not self.player.message:

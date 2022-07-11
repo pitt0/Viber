@@ -193,3 +193,29 @@ class Player(slash.Group):
             embed.add_field(name=song.title, value=song.author, inline=False) # type: ignore
         
         await interaction.response.send_message(embed=embed)
+
+    @slash.command(name='loop', description='Loops the queue.')
+    @slash.check(lambda interaction: interaction.guild is not None)
+    async def loop_queue(self, interaction: discord.Interaction):
+        assert interaction.guild is not None
+
+        if interaction.guild.id not in self.players or len(self.players[interaction.guild.id].queue) == 0:
+            await interaction.response.send_message("I'm not currently streaming any music.", ephemeral=True)
+            return
+
+        player = self.players[interaction.guild.id]
+        await player.set_loop(interaction, 1)
+        await interaction.followup.send('Queue looped.')
+
+    @slash.command(name='loop_song', description='Loops the current song.')
+    @slash.check(lambda interaction: interaction.guild is not None)
+    async def loop_song(self, interaction: discord.Interaction):
+        assert interaction.guild is not None
+
+        if interaction.guild.id not in self.players or len(self.players[interaction.guild.id].queue) == 0:
+            await interaction.response.send_message("I'm not currently streaming any music.", ephemeral=True)
+            return
+
+        player = self.players[interaction.guild.id]
+        await player.set_loop(interaction, 2)
+        await interaction.followup.send('Song looped.')
