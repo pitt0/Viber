@@ -165,6 +165,8 @@ class Song:
         self.embed.add_field(name='Year', value=self.year)
         mins = self.duration // 60
         secs = self.duration - 60 * mins
+        if secs < 10:
+            secs = f"0{secs}"
         self.duration = f"{mins}:{secs}" # type: ignore
         self.embed.add_field(name='Duration', value=self.duration)
         if self.url and self.source:
