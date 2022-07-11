@@ -18,8 +18,8 @@ class VPlayer(discord.ui.View):
         self.__player = player
         self.message = None # type: ignore
 
-    def delete(self) -> None:
-        pass
+    def destroy(self) -> None:
+        self.message = None # type: ignore
 
     @discord.ui.button(emoji='⏪', disabled=True)
     async def previous(self, interaction: discord.Interaction, _) -> None:
@@ -61,7 +61,7 @@ class VPlayer(discord.ui.View):
     @discord.ui.button(emoji='🔁', row=1)
     async def loop(self, interaction: discord.Interaction, _) -> None:
         await self.__player.set_loop(interaction, self.__player.loop + 1 if self.__player.loop != 2 else 0)
-        
+
         
 
 class MusicPlayer:
@@ -172,6 +172,9 @@ class MusicPlayer:
 
     def __next(self, _) -> None:
         self.__stop()
+        if len(self.queue) == 0:
+            return
+            
         if self.play_previous:
             self.queue.insert(0, self.cache.pop(-1))
             self.play_previous = False
@@ -184,7 +187,9 @@ class MusicPlayer:
             self.queue = self.cache # type: ignore
     
     def __stop(self) -> None:
-        self.__playing.set_result(False)
+        self.player.destroy()
+        if not self.__playing.done():
+            self.__playing.set_result(False)
 
     # public methods
     async def wait(self):
