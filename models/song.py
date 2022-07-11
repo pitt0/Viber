@@ -132,7 +132,6 @@ async def choose(interaction: discord.Interaction, reference: str, playable: boo
         await interaction.response.send_message(embed=songs[0].embed, view=view, ephemeral=True)
     await view.wait()
     song = view.current_song
-    print(song.title)
     if song.source != '':
         with SongCache() as cache:
             cache[reference] = song.source

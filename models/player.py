@@ -78,6 +78,7 @@ class MusicPlayer:
         'cache',
         'play_previous',
 
+        '__searching',
         '__playing',
         '__trick_paused',
 
@@ -93,6 +94,7 @@ class MusicPlayer:
     loop: int
     player: VPlayer
 
+    __searching: bool
     __playing: asyncio.Future[bool]
 
     def __init__(self, guild: discord.Guild):
@@ -106,6 +108,8 @@ class MusicPlayer:
         self.__trick_paused = False
         self.play_previous = False
         self.loop = 0
+
+        self.__searching = False
 
     @classmethod
     def load(cls, guild: discord.Guild, voice_client: discord.VoiceClient) -> 'MusicPlayer':
@@ -187,7 +191,6 @@ class MusicPlayer:
             self.queue = self.cache # type: ignore
     
     def __stop(self) -> None:
-        self.player.destroy()
         if not self.__playing.done():
             self.__playing.set_result(False)
 
@@ -260,6 +263,11 @@ class MusicPlayer:
             await self.play()
         else:
             await self.__update_player()
+            self.__searching = True
+            song = search(reference)[0]
+            self.queue[-1] = (song, source, interaction.user)
+            await interaction.followup.send('Added to Queue.', embed=song.embed)
+            self.__searching = False
 
     async def play(self) -> None:
         if self.player is None:
@@ -271,7 +279,7 @@ class MusicPlayer:
             self.__prepare() # Sets self.__playing to True
             self.voice_client.play(source, after=self.__next)
 
-            if not isinstance(song, Song):
+            if not isinstance(song, Song) and not self.__searching:
                 interaction, reference = song
                 song = search(reference)[0] # type: ignore
                 self.queue[0] = (song, source, requester)
@@ -299,4 +307,5 @@ class MusicPlayer:
         self.voice_client.stop()
         if force:
             self.queue = []
+            self.player.destroy()
             self.__stop()

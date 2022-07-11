@@ -28,7 +28,6 @@ class VSong(discord.ui.View):
         assert (0 <= value <= len(self.songs) - 1), f'Value set for index: {value}'
 
         self.current_song = self.songs[value]
-        print(self.songs[value].title)
 
         self.children[0].disabled = self.children[1].disabled = not value
         self.children[2].disabled = self.children[3].disabled = value == len(self.songs) -1
