@@ -5,7 +5,10 @@ import discord
 import json
 
 import ui
-from models import Playlist
+import models.utils.youtube as yt
+from models import Playlist, Song
+from models.utils.errors import WrongLink
+
 
 
 with open('database/playlist_cache.json') as f:
@@ -25,18 +28,38 @@ async def autocomplete(interaction: discord.Interaction, current: str) -> list[s
 
 class MNewPlaylist(discord.ui.Modal, title='Create a Playlist'):
     
-    name = TextInput(label='Playlist Title', placeholder='Title', required=True, min_length=2, max_length=20)
+    name = TextInput(label='Playlist Title', placeholder='Title', required=False, min_length=2, max_length=20)
     password = TextInput(label='Playlist Password Leave Empty to Keep it Free', placeholder='Password', required=False, min_length=8)
-    # url = TextInput(label='External Url', placeholder='Url', required=False, min_length=25)
+    url = TextInput(label='External Url', placeholder='Url', required=False, min_length=29)
 
     async def on_submit(self, interaction: discord.Interaction):
-        if Playlist.existing(interaction, str(self.name)): # type: ignore
+        if self.name is None and self.url is None:
+            raise WrongLink()
+        
+        songs = []
+        info = {}
+        if self.url is not None:
+            info = yt.from_link(self.url) # type: ignore
+            self.name = info['title']
+
+        if Playlist.existing(interaction, str(self.name)):
             await interaction.response.send_message('This playlist already exists!', ephemeral=True)
             return
-
+            
         playlist = create_playlist(str(self.name), interaction, str(self.password))
         playlist.upload()
         await interaction.response.send_message(f'Playlist `{playlist.name}#{playlist.id}` created.')
+
+        for entry in info['entries']:
+            songs.append(Song.from_youtube(entry))
+
+        [playlist.add_song(song) for song in songs]
+    
+    async def on_error(self, error: Exception, interaction: discord.Interaction) -> None:
+        if not isinstance(error, WrongLink):
+            return await super().on_error(error, interaction)
+
+        
 
 
 
