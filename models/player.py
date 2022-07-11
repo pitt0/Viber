@@ -86,7 +86,7 @@ class MusicPlayer:
     guild: discord.Guild
     channel: discord.TextChannel
     voice_client: discord.VoiceClient
-    queue: list[tuple[Song | None, discord.FFmpegOpusAudio, User]]
+    queue: list[tuple[Song | tuple[discord.Interaction, str], discord.FFmpegOpusAudio, User]]
     cache: list[tuple[Song, discord.FFmpegOpusAudio, User]]
     play_previous: bool
 
@@ -141,7 +141,7 @@ class MusicPlayer:
     @property
     def embed(self) -> discord.Embed:
         song = self.queue[0][0]
-        assert song is not None
+        assert isinstance(song, Song)
         requester = self.queue[0][2]
         _e = discord.Embed(
             title=song.title,
@@ -174,7 +174,7 @@ class MusicPlayer:
         self.__stop()
         if len(self.queue) == 0:
             return
-            
+
         if self.play_previous:
             self.queue.insert(0, self.cache.pop(-1))
             self.play_previous = False
@@ -255,13 +255,13 @@ class MusicPlayer:
         print('Adding from cache')
         
         source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
-        self.queue.append((None, source, interaction.user))
+        self.queue.append(((interaction, reference), source, interaction.user))
         if self.sleeping:
-            await self.play(interaction, reference)
+            await self.play()
         else:
             await self.__update_player()
 
-    async def play(self, interaction: discord.Interaction | None = None, reference: str | None = None) -> None:
+    async def play(self) -> None:
         if self.player is None:
             self.player = VPlayer(self)
         
@@ -271,7 +271,8 @@ class MusicPlayer:
             self.__prepare() # Sets self.__playing to True
             self.voice_client.play(source, after=self.__next)
 
-            if song is None:
+            if not isinstance(song, Song):
+                interaction, reference = song
                 song = search(reference)[0] # type: ignore
                 self.queue[0] = (song, source, requester)
                 await interaction.followup.send("Added to Queue.", embed=song.embed) # type: ignore
