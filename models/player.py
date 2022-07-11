@@ -1,9 +1,12 @@
 import asyncio
+from weakref import ref
 import discord
 import random
 
 from .song import Song, search
 from .utils import FFMPEG_OPTIONS
+
+User = discord.Member | discord.User
 
 class VPlayer(discord.ui.View):
 
@@ -14,6 +17,9 @@ class VPlayer(discord.ui.View):
         super().__init__(timeout=None)
         self.__player = player
         self.message = None # type: ignore
+
+    def delete(self) -> None:
+        pass
 
     @discord.ui.button(emoji='⏪', disabled=True)
     async def previous(self, interaction: discord.Interaction, _) -> None:
@@ -80,8 +86,8 @@ class MusicPlayer:
     guild: discord.Guild
     channel: discord.TextChannel
     voice_client: discord.VoiceClient
-    queue: list[tuple[Song | None, discord.FFmpegOpusAudio, discord.Member | discord.User]]
-    cache: list[tuple[Song, discord.FFmpegOpusAudio, discord.Member | discord.User]]
+    queue: list[tuple[Song | None, discord.FFmpegOpusAudio, User]]
+    cache: list[tuple[Song, discord.FFmpegOpusAudio, User]]
     play_previous: bool
 
     loop: int
@@ -148,18 +154,13 @@ class MusicPlayer:
         return _e
 
     # private methods
-    async def __update_player(self):
+    async def __update_player(self, view: bool = False):
         self.player.previous.disabled = not len(self.cache) > 0
-        self.player.next.disabled = not len(self.queue) > 0
+        self.player.next.disabled = not len(self.queue) > 1
         self.player.shuffle.disabled = not len(self.queue) > 2
-        try:
-            if self.player.message.embeds[0] == self.embed:
-                await self.player.message.edit(view=self.player)
-            else:
-                await self.player.message.edit(embed=self.embed, view=self.player)
-        except RuntimeError:
-            return
-
+        if view:
+            await self.player.message.edit(view=self.player)
+        
     async def __reset(self) -> None:
         await self.voice_client.disconnect()
         self.voice_client = None # type: ignore
@@ -170,33 +171,20 @@ class MusicPlayer:
         self.__playing = loop.create_future()
 
     def __next(self, _) -> None:
-        print("Checking if queue is empty...")
-        if len(self.queue) == 0:
-            print("Queue is empty, exiting...")
-            self.__playing.set_result(False)
-            return
-        print("Queue is not empty, caching song...")
+        self.__stop()
         if self.play_previous:
-            self.queue.insert(0, self.cache.pop(0))
+            self.queue.insert(0, self.cache.pop(-1))
             self.play_previous = False
         elif self.loop != 2:
-            self.cache.insert(0, self.queue.pop(0)) # type: ignore
+            self.cache.append(self.queue.pop(0)) # type: ignore
 
-        print("Song cached, checking if queue is empty again...")
         if len(self.queue) == 0:
-            print("Queue is empty")
-            if not bool(self.loop):
-                print("Exiting...")
-                self.__playing.set_result(False)
+            if not self.loop:
                 return
-            print("Looping...")
             self.queue = self.cache # type: ignore
-
-        print("Updating player...")
-        asyncio.run(self.__update_player())
-        print("Playing...")
-        asyncio.run(self.play())
-        
+    
+    def __stop(self) -> None:
+        self.__playing.set_result(False)
 
     # public methods
     async def wait(self):
@@ -248,7 +236,7 @@ class MusicPlayer:
                     await self.resume()
                     print("Resumed.")
 
-    async def add_song(self, song: Song, requester: discord.Member | discord.User) -> None:
+    async def add_song(self, song: Song, requester: User) -> None:
         print('Adding from reference')
 
         source = await discord.FFmpegOpusAudio.from_probe(song.source, **FFMPEG_OPTIONS)
@@ -264,34 +252,32 @@ class MusicPlayer:
         source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
         self.queue.append((None, source, interaction.user))
         if self.sleeping:
-            await self.play_cached(reference, interaction)
+            await self.play(interaction, reference)
         else:
             await self.__update_player()
 
-    async def play(self,) -> None:
-        source = self.queue[0][1]
-
+    async def play(self, interaction: discord.Interaction | None = None, reference: str | None = None) -> None:
         if self.player is None:
             self.player = VPlayer(self)
         
-        self.__prepare() # Sets self.__playing to True
-        self.voice_client.play(source, after=self.__next)
-        if not self.player.message:
-            self.player.message = await self.channel.send(embed=self.embed, view=self.player)
-    
-    async def play_cached(self, reference, interaction) -> None:
-        _, source, requester = self.queue[0]
+        while len(self.queue) > 0:
 
-        if self.player is None:
-            self.player = VPlayer(self)
+            song, source, requester = self.queue[0]
+            self.__prepare() # Sets self.__playing to True
+            self.voice_client.play(source, after=self.__next)
 
-        self.__prepare()
-        self.voice_client.play(source, after=self.__next)
-        song = search(reference)[0]
-        self.queue[0] = (song, source, requester)
-        await interaction.followup.send("Added to Queue.", embed=song.embed)
-        if not self.player.message:
-            self.player.message = await self.channel.send(embed=self.embed, view=self.player)
+            if song is None:
+                song = search(reference)[0] # type: ignore
+                self.queue[0] = (song, source, requester)
+                await interaction.followup.send("Added to Queue.", embed=song.embed) # type: ignore
+
+            await self.__update_player()
+            if not self.player.message:
+                self.player.message = await self.channel.send(embed=self.embed, view=self.player)
+            else:
+                await self.player.message.edit(embed=self.embed, view=self.player)
+            
+            await self.wait()
 
     async def pause(self,) -> None:
         self.voice_client.pause()
@@ -307,4 +293,4 @@ class MusicPlayer:
         self.voice_client.stop()
         if force:
             self.queue = []
-            self.__next(None)
+            self.__stop()
