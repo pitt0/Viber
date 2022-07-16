@@ -194,7 +194,7 @@ class Song:
         return not self.__eq__(__o)
 
     def upload(self, reference: str | None = None) -> None:
-        if reference:
+        if reference and 'http' not in reference:
             self.cache(reference)
         try:
             with Connector() as cur:
