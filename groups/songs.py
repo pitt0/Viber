@@ -2,7 +2,8 @@ from discord import app_commands as slash
 
 import discord
 
-from models import Advices, choose
+from models import Advices, Song, choose
+from models.utils.genius import lyrics
 
 class Songs(slash.Group):
     
@@ -23,9 +24,22 @@ class Songs(slash.Group):
 
         await interaction.followup.send(message, ephemeral=ephemeral)
 
-    @slash.command(name='search')
+    @slash.command(name='search', description='Searches a song.')
     async def search_song(self, interaction: discord.Interaction, song: str) -> None:
         await interaction.response.defer()
         _song = await choose(interaction, song)
 
         await interaction.followup.send(embed=_song.embed)
+
+    @slash.command(name='lyrics', description='Shows the lyrics of a song')
+    async def search_lyrics(self, interaction: discord.Interaction, song: str) -> None:
+        _song = Song.from_reference(song)[0]
+        _song.lyrics = lyrics(_song)
+        embed = discord.Embed(
+            title=f'{_song.title} by {_song.author}',
+            description=_song.lyrics,
+            color=discord.Color.orange(),
+            url=_song.url
+        )
+
+        await interaction.response.send_message(embed=embed)
