@@ -151,13 +151,12 @@ class Advices(BasePlaylist):
     def from_database(cls, person: discord.User | discord.Member) -> 'Advices':
         _songs: list[tuple[str | int, ...]] = []
         with AdvicesCache() as cache:
-            song_ids = cache[str(person.id)]
+            song_ids = cache[str(person.id)]['songs']
         with Connector() as cur:
             for song_id in song_ids:
                 cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
                 _songs.append(cur.fetchone())
-
-            songs = [Song.from_database(song_info) for song_info in _songs]
+            songs = [Song.from_database(song_info) for song_info in _songs if song_info != None]
 
         return cls(person, songs)
 
@@ -185,7 +184,7 @@ class LikedSongs(BasePlaylist):
     def from_database(cls, person: discord.User | discord.Member) -> 'LikedSongs':
         _songs: list[tuple[str | int, ...]] = []
         with LikedSongsCache() as cache:
-            song_ids = cache[str(person.id)]
+            song_ids = cache[str(person.id)]['songs']
         with Connector() as cur:
             for song_id in song_ids:
                 cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
@@ -269,10 +268,7 @@ class Playlist(BasePlaylist):
             cur.execute(f"""INSERT INTO Playlists (ID, Title, Date, Locked, Keyword, Author, Guild) 
             VALUES ({self.id}, ?, ?, {self.private}, ?, ?, ?);""", (self.name, self.date, self.password, self.author.id, self.guild.id))
         with PlaylistCache() as cache:
-            cache[self.name] = {
-                'guild': self.guild.id,
-                'author': self.author.id
-                }
+            cache[str(self.id)]['songs'] = [song.id for song in self.songs]
 
     def delete(self) -> None:
         with Connector() as cur:
@@ -351,6 +347,6 @@ class Playlist(BasePlaylist):
     def existing(cls, interaction: discord.Interaction, name: str) -> bool:
         with Connector() as cur:
             cur.execute(f"SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (name, interaction.guild.id, interaction.user.id)) # type: ignore
-            playlist = cur.fetchall()
+            playlist = cur.fetchone()
 
-        return playlist != []
+        return bool(playlist)

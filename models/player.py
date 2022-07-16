@@ -2,14 +2,18 @@ import asyncio
 import discord
 import random
 
+from .playlist import LikedSongs
 from .song import Song
 from .utils import FFMPEG_OPTIONS
 
 User = discord.Member | discord.User
 
+
+
 class VPlayer(discord.ui.View):
 
     children: list[discord.ui.Button]
+    embeds: list[discord.Embed]
     message: discord.Message
 
     def __init__(self, player: 'MusicPlayer'):
@@ -20,12 +24,15 @@ class VPlayer(discord.ui.View):
     def destroy(self) -> None:
         self.message = None # type: ignore
 
+    def set_embeds(self, embeds: list[discord.Embed]) -> None:
+        self.embeds = embeds
+
     @discord.ui.button(emoji='⏪', disabled=True)
     async def previous(self, interaction: discord.Interaction, _) -> None:
         self.__player.play_previous = True
         await self.__player.stop(force=False)
         await interaction.response.send_message(f'Song replayed.', ephemeral=True)
-    
+
     @discord.ui.button(emoji='⏸️')
     async def play_pause(self, interaction: discord.Interaction, _) -> None:
         if self.__player.playing:
@@ -40,10 +47,10 @@ class VPlayer(discord.ui.View):
         await self.__player.stop(force=False)
         await interaction.response.send_message(f'Song skipped.', ephemeral=True)
 
-    @discord.ui.button(emoji='💟', disabled=True)
+    @discord.ui.button(emoji='💟')
     async def like(self, interaction: discord.Interaction, _) -> None:
-        # TODO: Add the song to user's favourites
-        pass
+        playlist = LikedSongs.from_database(interaction.user)
+        playlist.add_song(self.__player.queue[0][0])
 
     @discord.ui.button(emoji='⏹️', row=1)
     async def stop(self, interaction: discord.Interaction, _) -> None:
@@ -61,9 +68,24 @@ class VPlayer(discord.ui.View):
     async def loop(self, interaction: discord.Interaction, _) -> None:
         await self.__player.set_loop(interaction, self.__player.loop + 1 if self.__player.loop != 2 else 0)
 
-    @discord.ui.button(emoji='✒️', row=1, disabled=True)
-    async def lyrics(self, interaction: discord.Interaction, _) -> None:
-        pass
+    @discord.ui.button(emoji='✒️', row=1)
+    async def lyrics(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self.embeds[1] is None:
+            await interaction.response.send_message('Could not find any lyrics for this song.', ephemeral=True)
+            return
+        index: int = 0
+        message = '\u200b'
+        match button.style:
+            case discord.ButtonStyle.blurple:
+                button.style = discord.ButtonStyle.grey
+                index = 0
+                message = 'Switched to player'
+            case discord.ButtonStyle.grey:
+                button.style = discord.ButtonStyle.blurple
+                index = 1
+                message = 'Switched to lyrics'
+        await self.message.edit(embed=self.embeds[index], view=self)
+        await interaction.response.send_message(message, ephemeral=True)
 
         
 
@@ -185,6 +207,7 @@ class MusicPlayer:
             return
 
         song, _, requester = self.queue.pop(0)
+        print(song.source)
         source = asyncio.run(self.get_source(song.source))
 
         if self.play_previous:
@@ -274,11 +297,20 @@ class MusicPlayer:
 
         while len(self.queue) > 0:
 
-            source = self.queue[0][1]
+            song, source, _ = self.queue[0]
             self.__prepare() # Creates the task
             self.voice_client.play(source, after=self.__next)
 
             await self.__update_player()
+            self.player.set_embeds([
+                self.embed,
+                discord.Embed(
+                    title=f'{song.title} by {song.author}',
+                    description=song.lyrics,
+                    url=song.url,
+                    color=discord.Color.blue()
+                ) if song.lyrics else None # type: ignore
+                ])
             if not self.player.message:
                 self.player.message = await self.channel.send(embed=self.embed, view=self.player)
             else:

@@ -1,7 +1,8 @@
 import json
 
-
 from .errors import *
+
+from .genius import lyrics
 
 from .spotify import *
 from .youtube import *

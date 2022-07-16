@@ -5,7 +5,7 @@ import discord
 
 import ui
 import models.utils.youtube as yt
-from models import Playlist, CachedPlaylist, Advices
+from models import Playlist, CachedPlaylist, Advices, LikedSongs
 
 # init cache
 cached_playlists = CachedPlaylist.load()
@@ -119,3 +119,8 @@ class Playlists(slash.Group):
     async def show_advices(self, interaction: discord.Interaction):
         advices = Advices.from_database(interaction.user)
         await interaction.response.send_message(embed=advices.embeds[0], view=ui.MenuView(advices.embeds))
+
+    @slash.command(name='liked', description='Shows your liked songs.')
+    async def show_liked_songs(self, interaction: discord.Interaction):
+        liked_songs = LikedSongs.from_database(interaction.user)
+        await interaction.response.send_message(embed=liked_songs.embeds[0], view=ui.MenuView(liked_songs.embeds))

@@ -2,7 +2,7 @@
 discord.py
 
 # music
-geniuslyrics
+lyricsgenius
 PyNaCl
 spotipy
 yt-dlp

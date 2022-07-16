@@ -5,7 +5,9 @@ import discord
 from .utils import (
     BadRequest,
     NotFound,
-    WrongLink
+    WrongLink,
+
+    lyrics
 )
 
 from connections import (
@@ -75,8 +77,8 @@ class YTInfo(dict):
 
 class DataInfo(dict):
     def __init__(self, *args) -> None:
-        youtube = args[7] or yt.search_urls(args[1] + ' ' + args[2])[0]
-        source = args[8] or ''
+        youtube = args[8] or yt.search_urls(args[1] + ' ' + args[2])[0]
+        source = args[9] or ''
         if not source:
             data = yt.from_link(youtube)
             source = data['url']
@@ -96,6 +98,7 @@ class DataInfo(dict):
             'thumbnail': args[4],
             'duration': args[5],
             'year': args[6],
+            'spotify': args[7],
             'youtube': youtube,
             'source': source
         }
@@ -139,8 +142,11 @@ async def choose(interaction: discord.Interaction, reference: str):
     else:
         song = songs[0]
 
+    song.lyrics = lyrics(song)
     song.upload(reference)
     return song
+
+
 
 @dataclass
 class Song:
@@ -157,6 +163,7 @@ class Song:
     youtube: str = ''
 
     source: str = ''
+    lyrics: str = ''
 
     def __post_init__(self) -> None:
         self.url = self.spotify or self.youtube

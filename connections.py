@@ -42,7 +42,6 @@ class CacheFile:
             return self.cache
 
     def __exit__(self, *args):
-        print(self.cache)
         with open(self.folder + self.file, 'w') as f:
             json.dump(self.cache, f, indent=4)
 

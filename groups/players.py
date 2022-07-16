@@ -4,8 +4,9 @@ from discord.ext import commands
 
 import discord
 
-from models import search, choose as choice, MusicPlayer, Song
+from models import search, choose as choice, MusicPlayer
 from models.utils.errors import SearchingException
+from models.utils.genius import lyrics
 
 
 
@@ -125,6 +126,7 @@ class Player(slash.Group):
                 song = await choice(interaction, reference)
             else:
                 song = search(reference)[0]
+                song.lyrics = lyrics(song)
                 song.upload(reference)
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
