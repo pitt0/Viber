@@ -240,9 +240,9 @@ class Song:
     @classmethod
     def from_cache(cls, reference: str) -> 'Song':
         with SongCache() as cache:
-            song_ids = cache[reference]
+            song_id = cache[reference]
         with Connector() as cur:
-            cur.execute("SELECT * FROM Songs WHERE ID=? OR ID=?;", (song_ids['spotify'], song_ids['youtube']))
+            cur.execute("SELECT * FROM Songs WHERE ID=?;", (song_id,))
             data = cur.fetchone()
         self = cls.from_database(data)
         if self.source == '':
