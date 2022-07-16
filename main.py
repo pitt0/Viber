@@ -9,7 +9,7 @@ import pytz
 
 # slash groups
 from groups.playlists import Playlists
-from groups.advices import AdviceList
+from groups.songs import Songs
 from groups.players import Player
 
 client = discord.Client(intents=discord.Intents.all())
@@ -18,7 +18,7 @@ tree = app_commands.CommandTree(client)
 
 def load_commands():
     tree.add_command(Playlists())
-    tree.add_command(AdviceList(client))
+    tree.add_command(Songs())
     tree.add_command(Player(client))
 
 @client.event
