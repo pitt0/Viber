@@ -1,7 +1,6 @@
 from discord import app_commands as slash
 from discord.ui import TextInput
 
-import asyncio
 import discord
 
 import ui
@@ -27,19 +26,13 @@ class MNewPlaylist(discord.ui.Modal, title='Create a Playlist'):
     password = TextInput(label='Playlist Password Leave Empty to Keep it Free', placeholder='Password', required=False, min_length=8)
     url = TextInput(label='External Url', placeholder='https://', required=False, min_length=29)
 
-    def __init__(self):
-        self.__stopped = asyncio.get_running_loop().create_future()
-
-    def __stop(self):
-        if not self.__stopped.done():
-            self.__stopped.set_result(True)
-
-    async def wait(self):
-        return await self.__stopped
-
     async def on_submit(self, interaction: discord.Interaction):
         if self.name is None and self.url is None:
-            raise SyntaxError()
+            modal = self
+            await interaction.response.send_modal(modal)
+            await modal.wait()
+            self.stop()
+            return
 
         await interaction.response.defer()
 
@@ -61,15 +54,9 @@ class MNewPlaylist(discord.ui.Modal, title='Create a Playlist'):
         await interaction.followup.send(f'Playlist `{playlist.name}#{playlist.id}` created.')
 
         playlist.from_youtube(info)
-        self.__stop()
-    
-    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
-        if not isinstance(error, SyntaxError):
-            return await super().on_error(interaction, error)
-        
-        print('Ma sei ghei')
+        self.stop()
 
-        
+
 
 class Playlists(slash.Group):
 

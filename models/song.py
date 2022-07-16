@@ -186,8 +186,9 @@ class Song:
     def __ne__(self, __o: object) -> bool:
         return not self.__eq__(__o)
 
-    def upload(self, reference: str) -> None:
-        self.cache(reference)
+    def upload(self, reference: str | None = None) -> None:
+        if reference:
+            self.cache(reference)
         try:
             with Connector() as cur:
                 cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, Source) 
