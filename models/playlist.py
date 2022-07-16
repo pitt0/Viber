@@ -236,9 +236,10 @@ class Playlist(BasePlaylist):
     def rename(self, name: str):
         self.name = name
         with Connector() as cur:
-            cur.execute(f"""UPDATE Playlists
-            SET Title='{self.name.replace('\'', '\'\'')}'
-            WHERE ID={self.id};""")
+            cur.execute("""UPDATE Playlists
+            SET Title=?
+            WHERE ID=?;""",
+            (self.name, self.id))
 
     def lock(self):
         self.private = True
@@ -257,10 +258,11 @@ class Playlist(BasePlaylist):
     def set_password(self, password: str):
         self.password = password
         with Connector() as cur:
-            cur.execute(f"""UPDATE Playlist
+            cur.execute("""UPDATE Playlist
             SET Locked=1,
-                Keyword='{password.replace('\'', '\'\'')}'
-            WHERE ID={self.id};""")
+                Keyword=?
+            WHERE ID=?;""",
+            (password, self.id))
 
     def upload(self) -> None:
         with Connector() as cur:

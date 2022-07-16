@@ -120,17 +120,16 @@ class Player(slash.Group):
         await interaction.response.defer()
         player = await self.load_player(interaction)
 
-        if Song.cached(reference) and not choose:
-            song = Song.from_cache(reference)
+        try:
+            if choose:
+                song = await choice(interaction, reference)
+            else:
+                song = search(reference)[0]
+                song.upload(reference)
+        except SearchingException as e:
+            await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
+            return
         
-        else:
-            try:
-                if choose: song = await choice(interaction, reference, playable=True)
-                else: song = search(reference, playable=True)[0]
-            except SearchingException as e:
-                await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
-                return
-
         await interaction.followup.send('Added to queue.', embed=song.embed)
         await player.add_song(song, interaction.user)
 

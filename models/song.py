@@ -25,6 +25,13 @@ __all__ = (
     'choose'
 )
 
+def duration_string(ms: int) -> str:
+    duration = ms//1000
+    mins = duration//60
+    secs = duration - mins * 60
+    if secs < 10:
+        secs = f"0{secs}"
+    return f"{mins}:{secs}"
 
 class SpotifyInfo(dict):
     def __init__(self, **kwargs) -> None:
@@ -35,12 +42,7 @@ class SpotifyInfo(dict):
         youtube = yt_data['original_url']
         source = yt_data['url']
 
-        _d = kwargs['duration']//1000
-        mins = _d//60
-        secs = _d - mins * 60
-        if secs < 10:
-            secs = f"0{secs}"
-        duration = f"{mins}:{secs}"
+        duration = duration_string(kwargs['duration_ms'])
                 
         _dict = {
             'id': kwargs['id'],
@@ -58,7 +60,6 @@ class SpotifyInfo(dict):
 
 class YTInfo(dict):
     def __init__(self, **kwargs) -> None:
-
         _dict = {
             'id': kwargs['id'],
             'title': kwargs['title'],
@@ -74,10 +75,19 @@ class YTInfo(dict):
 
 class DataInfo(dict):
     def __init__(self, *args) -> None:
-        source = ''
-        if args[7]:
-            with SongCache() as cache:
-                source = cache[args[7]]
+        youtube = args[7] or yt.search_urls(args[1] + ' ' + args[2])[0]
+        source = args[8] or ''
+        if not source:
+            data = yt.from_link(youtube)
+            source = data['url']
+
+            with Connector() as cur:
+                cur.execute("""UPDATE Songs
+                SET Source=?,
+                    Youtube=?
+                WHERE ID=?;""",
+                (source, youtube, args[0]))
+
         _dict = {
             'id': args[0],
             'title': args[1],
@@ -86,16 +96,16 @@ class DataInfo(dict):
             'thumbnail': args[4],
             'duration': args[5],
             'year': args[6],
-            'youtube': args[7],
+            'youtube': youtube,
             'source': source
         }
         super().__init__(_dict)
 
 
-def search(reference: str, playable: bool = False) -> list['Song']:
+def search(reference: str) -> list['Song']:
     songs: list[Song] = []
     if not reference.startswith('http'):
-        songs = Song.from_reference(reference, playable)
+        songs = Song.from_reference(reference)
 
         if len(songs) == 0:
             raise NotFound(f'Searching `{reference}` returned no result.')
@@ -104,11 +114,7 @@ def search(reference: str, playable: bool = False) -> list['Song']:
         song = Song.from_spotify(reference)
         if song is None:
             raise WrongLink(f'(This link)[{reference}] returned no result.')
-        
-        if playable and not song.source:
-            songs = Song.from_reference(f'{song.title} {song.author}', playable)
-        else:
-            songs = [song]
+        songs = [song]
     
     elif 'youtu.be' in reference or 'youtube.com' in reference:
         song = Song.from_youtube(reference)
@@ -117,14 +123,10 @@ def search(reference: str, playable: bool = False) -> list['Song']:
     else:
         raise BadRequest(f'(This type of links)[{reference}] are not supported.')
     
-    if playable:
-        for song in songs:
-            song.upload()
-
     return songs
 
-async def choose(interaction: discord.Interaction, reference: str, playable: bool = False):
-    songs = search(reference, playable)
+async def choose(interaction: discord.Interaction, reference: str):
+    songs = search(reference)
     
     if len(songs) > 1:
         view = VSong(songs, choice=True)
@@ -137,9 +139,7 @@ async def choose(interaction: discord.Interaction, reference: str, playable: boo
     else:
         song = songs[0]
 
-    with SongCache() as cache:
-        cache[reference] = song.id
-    song.upload()
+    song.upload(reference)
     return song
 
 @dataclass
@@ -170,16 +170,15 @@ class Song:
         self.embed.add_field(name='Year', value=self.year)
         self.embed.add_field(name='Duration', value=self.duration)
         
-        if self.spotify:
+        if self.spotify != '':
             with Connector() as cur:
-                cur.execute("SELECT * FROM Songs WHERE Spotify=?;", (self.spotify,))
+                cur.execute("SELECT * FROM Songs WHERE Youtube=?;", (self.youtube,))
                 data = cur.fetchone()
             if data is not None:
                 if self.title == data[1]:
                     return
                 self.update_info()
                 return
-        self.upload()
 
     def __eq__(self, __o: object) -> bool:
         return isinstance(__o, Song) and __o.id == self.id
@@ -187,7 +186,8 @@ class Song:
     def __ne__(self, __o: object) -> bool:
         return not self.__eq__(__o)
 
-    def upload(self) -> None:
+    def upload(self, reference: str) -> None:
+        self.cache(reference)
         try:
             with Connector() as cur:
                 cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, Source) 
@@ -240,9 +240,9 @@ class Song:
     @classmethod
     def from_cache(cls, reference: str) -> 'Song':
         with SongCache() as cache:
-            song_id = cache[reference]
+            song_ids = cache[reference]
         with Connector() as cur:
-            cur.execute("SELECT * FROM Songs WHERE ID=?;", (song_id,))
+            cur.execute("SELECT * FROM Songs WHERE ID=? OR ID=?;", (song_ids['spotify'], song_ids['youtube']))
             data = cur.fetchone()
         self = cls.from_database(data)
         if self.source == '':
@@ -254,7 +254,6 @@ class Song:
         with Connector() as cur:
             cur.execute(f"SELECT * FROM Songs WHERE ID=?;", (id,))
             song = cur.fetchone()
-
         return cls.from_database(song)
         
     @classmethod
@@ -263,29 +262,21 @@ class Song:
         return cls(**info)
 
     @classmethod
-    def from_reference(cls, reference: str, playable: bool = False) -> list['Song']:
-        with SongCache() as cache:
-            if reference in cache:
-                song_id = cache[reference]
-                self = cls.from_id(song_id)
-                if playable and self.source == '':
-                    self.update_source()
-                return [self]
+    def from_reference(cls, reference: str) -> list['Song']:
+        if cls.cached(reference):
+            return [cls.from_cache(reference)]
 
         songs = []
-        if not playable:
-            info = sp.search(reference)
-            if len(info['tracks']['items']) > 0:
-
-                for track in info['tracks']['items']:
-                    info = SpotifyInfo(**track)
-                    songs.append(cls(**info))
+        info = sp.search(reference)
+        if len(info['tracks']['items']) > 0:
+            for track in info['tracks']['items']:
+                info = SpotifyInfo(**track)
+                songs.append(cls(**info))
         else:
             results = yt.search(reference)
             for result in results:
                 info = YTInfo(**result)
                 songs.append(cls(**info))
-        
         return songs
 
     @classmethod
