@@ -1,4 +1,5 @@
 from typing import Any
+import json
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
@@ -10,6 +11,7 @@ auth_manager = SpotifyOAuth()
 sp = spotipy.Spotify(auth_manager=auth_manager)
 
 __all__ = (
+    'search',
 )
 
 def search(song: str) -> dict[str, Any]:

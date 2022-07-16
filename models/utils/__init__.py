@@ -1,6 +1,5 @@
 import json
 
-from .connections import *
 
 from .errors import *
 

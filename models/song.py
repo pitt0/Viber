@@ -4,12 +4,14 @@ import discord
 import json
 
 from .utils import (
-    Connector,
-    SongCache,
-
     BadRequest,
     NotFound,
     WrongLink
+)
+
+from connections import (
+    Connector,
+    SongCache,
 )
 
 from .utils import spotify as sp
@@ -30,14 +32,20 @@ class SpotifyInfo(dict):
         spotify = kwargs['external_urls']['spotify']
         youtube = ''
         source = ''
-        with SongCache() as cache:
-            if spotify in cache:
-                source = cache[spotify]
-            else:
-                youtube = yt.search_urls(kwargs['name'] + ' ' + kwargs['artists'][0]['name'])[0]
-                if youtube in cache:
-                    source = cache[youtube]
-                    cache[spotify] = source
+        with Connector() as cursor:
+            cursor.execute('SELECT * FROM Songs WHERE Spotify=?;', (spotify,))
+            data = cursor.fetchone()
+        if data is not None:
+            youtube = data[-2]
+            source = data[-1]
+            duration = data[5]
+        else:
+            _d = kwargs['duration']//1000
+            mins = _d//60
+            secs = _d - mins * 60
+            if secs < 10:
+                secs = f"0{secs}"
+            duration = f"{mins}:{secs}"
                 
         _dict = {
             'id': kwargs['id'],
@@ -45,9 +53,9 @@ class SpotifyInfo(dict):
             'author': kwargs['artists'][0]['name'],
             'album': kwargs['album']['name'],
             'thumbnail': kwargs['album']['images'][0]['url'],
-            'duration': kwargs['duration_ms']//1000,
+            'duration': duration,
             'year': int(kwargs['album']['release_date'][:4]),
-            'spotify': kwargs['external_urls']['spotify'],
+            'spotify': spotify,
             'youtube': youtube,
             'source': source
             }
@@ -55,15 +63,14 @@ class SpotifyInfo(dict):
 
 class YTInfo(dict):
     def __init__(self, **kwargs) -> None:
-        minutes, seconds = kwargs['duration_string'].split(':')
-        duration = int(seconds) + int(minutes)*60
+        
         _dict = {
             'id': kwargs['id'],
             'title': kwargs['title'],
             'author': kwargs['uploader'],
             'album': kwargs.get('album', '\u200b'),
             'thumbnail': kwargs['thumbnail'],
-            'duration': duration,
+            'duration': kwargs['duration_string'],
             'year': kwargs['upload_date'][:4],
             'youtube': kwargs['original_url'],
             'source': kwargs['url']
@@ -117,7 +124,7 @@ def search(reference: str, playable: bool = False) -> list['Song']:
     
     if playable:
         for song in songs:
-            song.cache()
+            song.upload()
 
     return songs
 
@@ -145,7 +152,7 @@ class Song:
     author: str
     album: str
     thumbnail: str
-    duration: int
+    duration: str
     year: int
 
     spotify: str = ''
@@ -163,42 +170,71 @@ class Song:
         )
         self.embed.set_thumbnail(url=self.thumbnail)
         self.embed.add_field(name='Year', value=self.year)
-        mins = self.duration // 60
-        secs = self.duration - 60 * mins
-        if secs < 10:
-            secs = f"0{secs}"
-        self.duration = f"{mins}:{secs}" # type: ignore
         self.embed.add_field(name='Duration', value=self.duration)
-        if self.url and self.source:
-            self.cache()
+        self.upload()
 
+    def __eq__(self, __o: object) -> bool:
+        return isinstance(__o, Song) and __o.id == self.id
 
-    def upload(self, playlist_id: int) -> None:
+    def __ne__(self, __o: object) -> bool:
+        return not self.__eq__(__o)
+
+    def upload(self) -> None:
         with Connector() as cur:
-            cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, PlaylistID) 
+            cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, Source) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-            (self.id, self.title, self.author, self.album, self.thumbnail, self.duration, self.year, self.spotify, self.youtube, playlist_id)
+            (self.id, self.title, self.author, self.album, self.thumbnail, self.duration, self.year, self.spotify, self.youtube, self.source)
             )
-        self.cache()
 
-    def cache(self) -> None:
+    def update_source(self) -> None:
+        if self.youtube != '':
+            data = yt.from_link(self.youtube)
+            self.source = data['url']
+            with Connector() as cur:
+                cur.execute("""UPDATE Songs
+                SET Source=?
+                WHERE ID=?;""",
+                (self.source, self.id))
+        else:
+            data = yt.search(f'{self.title} {self.author}')[0]
+            self.youtube = data['original_url']
+            self.source = data['url']
+            with Connector() as cur:
+                cur.execute("""UPDATE Songs
+                SET Source=?,
+                    Youtube=?
+                WHERE ID=?;""",
+                (self.source, self.youtube, self.id))
+
+    def cache(self, reference: str) -> None:
         with SongCache() as cache:
-            cache[self.url] = self.source
+            cache[reference] = self.id
 
     @staticmethod
     def cached(reference: str) -> bool:
         with SongCache() as cache:
             return reference in cache
     
-    @staticmethod
-    def load_cache(reference: str) -> str:
+    @classmethod
+    def from_cache(cls, reference: str) -> 'Song':
         with SongCache() as cache:
-            return cache[reference]
-
-    def remove(self, playlist_id: int) -> None:
+            song_id = cache[reference]
         with Connector() as cur:
-            cur.execute(f"DELETE FROM Songs WHERE PlaylistID=? AND SongID=?;", (playlist_id, self.id,))
+            cur.execute("SELECT * FROM Songs WHERE ID=?;", (song_id,))
+            data = cur.fetchone()
+        self = cls.from_database(data)
+        if self.source == '':
+            self.update_source()
+        return self
 
+    @classmethod
+    def from_id(cls, id: str | int):
+        with Connector() as cur:
+            cur.execute(f"SELECT * FROM Songs WHERE ID=?;", (id,))
+            song = cur.fetchone()
+
+        return cls.from_database(song)
+        
     @classmethod
     def from_database(cls, data: tuple[str | int, ...]):
         info = DataInfo(*data)
@@ -206,6 +242,14 @@ class Song:
 
     @classmethod
     def from_reference(cls, reference: str, playable: bool = False) -> list['Song']:
+        with SongCache() as cache:
+            if reference in cache:
+                song_id = cache[reference]
+                self = cls.from_id(song_id)
+                if playable and self.source == '':
+                    self.update_source()
+                return [self]
+
         songs = []
         if not playable:
             info = sp.search(reference)
@@ -214,7 +258,6 @@ class Song:
                 for track in info['tracks']['items']:
                     info = SpotifyInfo(**track)
                     songs.append(cls(**info))
-                    
         else:
             results = yt.search(reference)
             for result in results:
@@ -225,6 +268,12 @@ class Song:
 
     @classmethod
     def from_spotify(cls, link: str):
+        with Connector() as cur:
+            cur.execute(f"SELECT * FROM Songs WHERE Spotify='{link}';")
+            song = cur.fetchone()
+            if song is not None:
+                return cls.from_database(song)
+
         if 'track' not in link:
             return None
 
@@ -234,6 +283,12 @@ class Song:
 
     @classmethod
     def from_youtube(cls, link: str):
+        with Connector() as cur:
+            cur.execute(f"SELECT * FROM Songs WHERE Youtube='{link}';")
+            song = cur.fetchone()
+            if song is not None:
+                return cls.from_database(song)
+
         track = yt.from_link(link)
         info = YTInfo(**track)
         return cls(**info)

@@ -1,14 +1,55 @@
 from abc import abstractclassmethod
+from dataclasses import dataclass
 from string import printable
-from typing import Optional
+from typing import Any, Optional
 
+import datetime
 import discord
-import json
 
-
+from connections import *
 from .utils import *
 from .song import Song
 
+
+__all__ = (
+    'Advices',
+    'LikedSongs',
+    'Playlist',
+
+    'CachedPlaylist',
+    'EmbeddablePlaylist'
+)
+
+
+@dataclass
+class CachedPlaylist:
+    name: str
+    guild: int
+    author: int
+
+    @classmethod
+    def load(cls) -> list['CachedPlaylist']:
+        cache = []
+        with Connector() as cur:
+            cur.execute("SELECT * FROM Playlists;")
+            for playlist in cur.fetchall():
+                cache.append(CachedPlaylist(
+                    playlist[1],
+                    playlist[5],
+                    playlist[4]
+                    ))
+        return cache
+    
+    def showable(self, interaction: discord.Interaction) -> bool:
+        return interaction.guild.id == self.guild and interaction.user.id == self.author # type: ignore
+    
+    def is_input(self, query: str) -> bool:
+        return query.lower() in self.name.lower()
+
+@dataclass
+class EmbeddablePlaylist:
+    title: str
+    date: str
 
 class BasePlaylist:
     
@@ -61,28 +102,29 @@ class BasePlaylist:
     @property
     def embeds(self) -> list[discord.Embed]:
         es = []
+        current = 0
+
         _e = self.__create_embed(1)
         es.append(_e)
         for index, song in enumerate(self.songs):
-            if index%10 == 0:
-                es.append(_e)
+            if index // 10 > current:
+                current = index // 10
                 _e = self.__create_embed(index//10)
+                es.append(_e)
             _e.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
         return es
 
     def add_song(self, song: Song) -> None:
         self.songs.append(song)
-        song.upload(self.id)
+        song.upload()
         
 
     def remove_song(self, song: Song) -> None:
         self.songs.remove(song)
-        song.remove(self.id)
         
     @abstractclassmethod
-    def from_database(cls, reference) -> Optional['BasePlaylist']:
+    def from_database(cls, _) -> Optional['BasePlaylist']:
         """Retrives the Playlist from the DataBase"""
-
 
 
 class Advices(BasePlaylist):
@@ -95,45 +137,96 @@ class Advices(BasePlaylist):
         self.id = self.user.id
         self.songs = songs or []
 
+    def add_song(self, song: Song) -> None:
+        with AdvicesCache() as cache:
+            cache[str(self.id)]["songs"].append(song.id)
+        super().add_song(song)
+
+    def remove_song(self, song: Song) -> None:
+        with AdvicesCache() as cache:
+            cache[str(self.id)]["songs"].remove(song.id)
+        super().remove_song(song)
 
     @classmethod
     def from_database(cls, person: discord.User | discord.Member) -> 'Advices':
+        _songs: list[tuple[str | int, ...]] = []
+        with AdvicesCache() as cache:
+            song_ids = cache[str(person.id)]
         with Connector() as cur:
-            cur.execute(f"SELECT * FROM Songs WHERE PlaylistID=?", (person.id,))
-            _songs = cur.fetchall()
+            for song_id in song_ids:
+                cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
+                _songs.append(cur.fetchone())
+
+            songs = [Song.from_database(song_info) for song_info in _songs]
+
+        return cls(person, songs)
+
+class LikedSongs(BasePlaylist):
+
+    __slots__ = 'user'
+
+    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[Song]] = None):
+        super().__init__(f"{user.display_name}'s Advice List")
+        self.user = user
+        self.id = self.user.id
+        self.songs = songs or []
+
+    def add_song(self, song: Song) -> None:
+        with LikedSongsCache() as cache:
+            cache[str(self.id)]["songs"].append(song.id)
+        super().add_song(song)
+
+    def remove_song(self, song: Song) -> None:
+        with LikedSongsCache() as cache:
+            cache[str(self.id)]["songs"].remove(song.id)
+        super().remove_song(song)
+
+    @classmethod
+    def from_database(cls, person: discord.User | discord.Member) -> 'LikedSongs':
+        _songs: list[tuple[str | int, ...]] = []
+        with LikedSongsCache() as cache:
+            song_ids = cache[str(person.id)]
+        with Connector() as cur:
+            for song_id in song_ids:
+                cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
+                _songs.append(cur.fetchone())
 
             songs = [Song.from_database(song_info) for song_info in _songs]
 
         return cls(person, songs)
 
 
-
 class Playlist(BasePlaylist):
 
     __slots__ = (
         'author',
+        'date',
         'guild',
         'password',
         'private',
     )
 
-    guild: discord.Guild | discord.User
+    guild: discord.Guild | discord.User | discord.Member
 
     def __init__(
         self,
+        id: int,
         name: str,
-        interaction: discord.Interaction,
-        id: int | None = None,
-        password: str | None = None
+        date: str,
+        private: bool,
+        password: str,
+        author: discord.User | discord.Member,
+        guild: discord.Guild | None
     ):
 
         super().__init__(name)
 
-        self.id = id or self.__create_id(self.name)
-        self.author = interaction.user
+        self.id = id
+        self.date = date
+        self.author = author
         self.password = password
-        self.private = bool(password)
-        self.guild = interaction.guild or interaction.user # type: ignore
+        self.private = private
+        self.guild = guild or author 
 
     @staticmethod
     def __create_id(name: str) -> int:
@@ -142,56 +235,77 @@ class Playlist(BasePlaylist):
     
     def rename(self, name: str):
         self.name = name
-        self.update()
+        with Connector() as cur:
+            cur.execute(f"""UPDATE Playlists
+            SET Title='{self.name.replace('\'', '\'\'')}'
+            WHERE ID={self.id};""")
 
     def lock(self):
         self.private = True
-        self.update()
+        with Connector() as cur:
+            cur.execute(f"""UPDATE Playlist
+            SET Locked=1
+            WHERE ID={self.id};""")
 
     def unlock(self):
         self.private = False
-        self.update()
+        with Connector() as cur:
+            cur.execute(f"""UPDATE Playlist
+            SET Locked=0
+            WHERE ID={self.id};""")
 
     def set_password(self, password: str):
         self.password = password
+        with Connector() as cur:
+            cur.execute(f"""UPDATE Playlist
+            SET Locked=1,
+                Keyword='{password.replace('\'', '\'\'')}'
+            WHERE ID={self.id};""")
 
     def upload(self) -> None:
         with Connector() as cur:
-            cur.execute(f"""INSERT INTO Playlists (ID, Title, Locked, Keyword, Author, Guild) 
-            VALUES ({self.id}, ?, {self.private}, ?, ?, ?);""", (self.name, self.password, self.author.id, self.guild.id))
-        with PlaylistCache() as ps:
-            ps[self.name] = self.guild.id
-
-    def update(self) -> None:
-        with Connector() as cur:
-            cur.execute(f"""
-            UPDATE Playlists
-            SET Title='{self.name}',
-                Author={self.author.id},
-                Keyword='{self.password}',
-                Locked={int(self.private)},
-                Guild={self.guild.id}
-            WHERE ID={self.id};
-            """)
-
+            cur.execute(f"""INSERT INTO Playlists (ID, Title, Date, Locked, Keyword, Author, Guild) 
+            VALUES ({self.id}, ?, ?, {self.private}, ?, ?, ?);""", (self.name, self.date, self.password, self.author.id, self.guild.id))
+        with PlaylistCache() as cache:
+            cache[self.name] = {
+                'guild': self.guild.id,
+                'author': self.author.id
+                }
 
     def delete(self) -> None:
         with Connector() as cur:
             cur.execute(f"DELETE FROM Playlists WHERE ID={self.id};")
-            cur.execute(f"DELETE FROM Songs WHERE PlaylistID={self.id};")
         with PlaylistCache() as ps:
-            del ps[self.name]
+            del ps[str(self.id)]
 
+
+    def add_song(self, song: Song) -> None:
+        with PlaylistCache() as cache:
+            cache[str(self.id)]["songs"].append(song.id)
+        super().add_song(song)
+
+    def remove_song(self, song: Song) -> None:
+        with PlaylistCache() as cache:
+            cache[str(self.id)]["songs"].remove(song.id)
+        super().remove_song(song)
+    
+    @classmethod
+    def new(cls, name: str, interaction: discord.Interaction, password: str) -> 'Playlist':
+        return cls(
+            id=cls.__create_id(name),
+            name=name,
+            date=datetime.datetime.now().strftime("%d/%m/%y"),
+            private=(password != ''),
+            password=password,
+            author=interaction.user,
+            guild=interaction.guild
+        )
 
     @classmethod
     async def from_database(cls, interaction: discord.Interaction, reference: str) -> 'Playlist':
         with Connector() as cur:
-            cur.execute(f"SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (reference, interaction.guild.id, interaction.user.id)) # type: ignore
+            cur.execute("SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (reference, interaction.guild.id, interaction.user.id)) # type: ignore
             playlist = cur.fetchone()
-
-            cur.execute(f"SELECT * FROM Songs WHERE PlaylistID={playlist[0]};")
-            _songs: list[tuple[str | int, ...]] = cur.fetchall()
-            songs = [Song.from_database(song_info) for song_info in _songs] # type: ignore
 
         kwargs = {
             'name': playlist[1],
@@ -200,17 +314,41 @@ class Playlist(BasePlaylist):
             'password': playlist[3]
         }
 
-        Playlist = cls(**kwargs)
-        Playlist.author = await interaction.client.fetch_user(playlist[4])
-        Playlist.songs = songs
+        self = cls(**kwargs)
+        self.author = await interaction.client.fetch_user(playlist[4])
 
-        return Playlist
+        songs = []
+        with PlaylistCache() as cache:
+            for song_id in cache[str(self.id)]:
+                songs.append(Song.from_id(song_id))
 
+        self.songs = songs
+
+        return self
+
+    @staticmethod
+    async def from_person(person: discord.User | discord.Member) -> list[EmbeddablePlaylist]:
+        with Connector() as cur:
+            cur.execute("SELECT * FROM Playlists WHERE Author=?;", (person.id,))
+            playlists = cur.fetchall()
+
+        embeddable = []
+        for playlist in playlists:
+            embeddable.append(EmbeddablePlaylist(
+                playlist[1],
+                playlist[2]
+            ))
+        
+        return embeddable
+
+    def from_youtube(self, info: dict[str, Any]) -> None:
+        for entry in info['entries']:
+            self.add_song(Song.from_youtube(entry))
 
     @classmethod
     def existing(cls, interaction: discord.Interaction, name: str) -> bool:
         with Connector() as cur:
-            cur.execute(f"SELECT * FROM Playlists WHERE Title=? AND Guild=? OR Author;", (name, interaction.guild.id, interaction.user.id)) # type: ignore
+            cur.execute(f"SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (name, interaction.guild.id, interaction.user.id)) # type: ignore
             playlist = cur.fetchall()
 
         return playlist != []

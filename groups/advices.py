@@ -2,13 +2,8 @@ from discord import app_commands as slash
 # from discord.ext import tasks
 
 import discord
+
 # import random
-import sqlite3
-import ui
-
-from models import Advices
-from models import song as _song
-
 # ADVICES = [
 #     "Remember to listen to *song_title* by *song_author*. Someone adviced you this song and I think they would really like if you'd do that.",
 #     "Someone adviced you *song_title* by *song_author*. Why don't you try to listen to it?"
@@ -41,31 +36,4 @@ class AdviceList(slash.Group):
     #         # TODO: Add a snooze/dismiss button
     #         await member.send(embed=embed)
 
-    @slash.command(name='advice', description='Advice a song to someone in this server.')
-    @slash.describe(reference='A reference to the song you want to advice', person='The person you want to advice the song.')
-    async def advice_song(self, interaction: discord.Interaction, reference: str, person: discord.Member):
-        try:
-            await interaction.response.defer()
-        except discord.NotFound:
-            print(interaction)
-        song = await _song.choose(interaction, reference)
-        if song is None:
-            return
 
-        advices = Advices.from_database(person)
-            
-        try:
-            advices.add_song(song)
-            message = f"`{song.title} • {song.author}` adviced to {person.mention}"
-            ephemeral = False
-        except sqlite3.IntegrityError:
-            message = f"This song is already in {person.display_name}'s advice list"
-            ephemeral = True
-
-        await interaction.followup.send(message, ephemeral=ephemeral)
-
-
-    @slash.command(name='my_advices', description='Send your Advice List.')
-    async def advice_list(self, interaction: discord.Interaction):
-        advices = Advices.from_database(interaction.user)
-        await interaction.response.send_message(embed=advices.embeds[0], view=ui.MenuView(advices.embeds))

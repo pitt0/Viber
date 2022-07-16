@@ -36,4 +36,4 @@ async def on_ready():
 
 if __name__ == '__main__':
     load_dotenv()
-    client.run(os.getenv('TOKEN'))
+    client.run(os.getenv('TOKEN')) # type: ignore

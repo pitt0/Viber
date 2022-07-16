@@ -1,8 +1,14 @@
 import discord
 
-from models import Playlist
 from .modals import *
+from models import Playlist
 
+__all__ = (
+    'PlaylistPaginator',
+    'PlaylistSettings',
+    'PlaylistAdvancedSettings',
+    'SongManager',
+)
 
 class PlaylistPaginator(discord.ui.View):
 
@@ -73,13 +79,19 @@ class PlaylistSettings(discord.ui.View):
         super().__init__()
         self.playlist = playlist
 
+    @discord.ui.button(label='<')
+    async def back(self, *_) -> None:
+        self.stop()
+
     @discord.ui.button(label='Advanced')
     async def advanced(self, interaction: discord.Interaction, _) -> None:
         if interaction.user != self.playlist.author:
             await interaction.response.send_message('You cannot complete this action, only the author of the playlist can.', ephemeral=True)
             self.stop()
             return
-        await interaction.response.edit_message(view=PlaylistAdvancedSettings(self.playlist))
+        view = PlaylistAdvancedSettings(self.playlist)
+        await interaction.response.edit_message(view=view)
+        await view.wait()
         self.stop()
 
 
@@ -122,6 +134,10 @@ class PlaylistAdvancedSettings(discord.ui.View):
         else:
             self.children[0].label = 'Lock'
 
+    @discord.ui.button(label='<')
+    async def back(self, *_) -> None:
+        self.stop()
+
     @discord.ui.button() # label will be added in __init__
     async def edit_state(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if button.label == 'Lock':
@@ -153,17 +169,19 @@ class SongManager(discord.ui.View):
     def __init__(self, playlist: Playlist):
         super().__init__()
         self.playlist = playlist
+    
+    @discord.ui.button(label='<')
+    async def back(self, *_) -> None:
+        self.stop()
 
     @discord.ui.button(label='Add')
     async def add_song(self, interaction: discord.Interaction, _) -> None:
         modal = AddSong(self.playlist)
         await interaction.response.send_modal(modal)
         await modal.wait()
-        self.stop()
 
     @discord.ui.button(label='Remove')
     async def remove_song(self, interaction: discord.Interaction, _) -> None:
         modal = RemoveSong(self.playlist)
         await interaction.response.send_modal(modal)
         await modal.wait()
-        self.stop()

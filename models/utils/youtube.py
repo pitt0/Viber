@@ -5,10 +5,19 @@ import re
 import urllib.request
 
 
+__all__ = (
+    'from_link',
+    'search_urls',
+    'search'
+)
+
 with open('database/options.json') as f:
     OPTS = json.load(f)
 
 yt = yt_dlp.YoutubeDL(OPTS)
+
+def from_link(link: str) -> dict[str, Any]:
+    return yt.extract_info(link, download=False)
 
 def search_urls(query: str) -> list[str]:
     html = urllib.request.urlopen(f"https://www.youtube.com/results?search_query={query.replace(' ', '+').encode('utf-8')}")
@@ -27,9 +36,7 @@ def search(query: str) -> list[dict[str, Any]]:
 
     infos = []
     for link in links:
-        infos.append(yt.extract_info(link, download=False))
+        infos.append(from_link(link))
 
     return infos
 
-def from_link(link: str) -> dict[str, Any]:
-    return yt.extract_info(link, download=False)

@@ -6,13 +6,14 @@ import json
 __all__ = (
     'Connector',
     'PlaylistCache',
+    'AdvicesCache',
+    'LikedSongsCache',
     'SongCache'
 )
 
 class Connector:
 
-    def __init__(self):
-        self.connection = sql.connect('database/music.sqlite')
+    connection = sql.connect('database/music.sqlite')
 
     def __enter__(self):
         return self.connection.cursor()
@@ -26,25 +27,33 @@ class CacheFile:
 
     """Opens a file in both read and write mode and when exits it automatically dumps to cache."""
 
+    folder: str = 'database/cache/'
     file: str
 
     cache: dict[str, Any]
 
     def __enter__(self) -> dict[str, Any]:
-        with open(self.file) as f:
+        with open(self.folder + self.file) as f:
             self.cache = json.load(f)
             return self.cache
 
     def __exit__(self, *args):
-        with open(self.file, 'w') as f:
+        with open(self.folder + self.file, 'w') as f:
             json.dump(self.cache, f, indent=4)
 
 
 class PlaylistCache(CacheFile):
 
-    file = 'database/playlist_cache.json'
+    file = 'playlists.json'
 
+class AdvicesCache(CacheFile):
+
+    file = 'advices.json'
+
+class LikedSongsCache(CacheFile):
+
+    file = 'liked_songs.json'
 
 class SongCache(CacheFile):
 
-    file = 'database/song_cache.json'
+    file = 'songs.json'

@@ -1,6 +1,6 @@
-import asyncio
 from discord.ui import TextInput
 
+import asyncio
 import discord
 
 from models import Playlist, choose

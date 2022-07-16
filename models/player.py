@@ -77,7 +77,6 @@ class MusicPlayer:
         'cache',
         'play_previous',
 
-        '__searching',
         '__playing',
         '__trick_paused',
 
@@ -86,14 +85,13 @@ class MusicPlayer:
     guild: discord.Guild
     channel: discord.TextChannel
     voice_client: discord.VoiceClient
-    queue: list[tuple[Song | tuple[discord.Interaction, str, str], discord.FFmpegOpusAudio, User]]
+    queue: list[tuple[Song, discord.FFmpegOpusAudio, User]]
     cache: list[tuple[Song, discord.FFmpegOpusAudio, User]]
     play_previous: bool
 
     loop: int
     player: VPlayer
 
-    __searching: bool
     __playing: asyncio.Future[bool]
 
     def __init__(self, guild: discord.Guild):
@@ -103,12 +101,10 @@ class MusicPlayer:
 
         self.player = None # type: ignore
 
-        self.__prepare()
         self.__trick_paused = False
         self.play_previous = False
         self.loop = 0
 
-        self.__searching = False
 
     @classmethod
     def load(cls, guild: discord.Guild, voice_client: discord.VoiceClient) -> 'MusicPlayer':
@@ -143,9 +139,8 @@ class MusicPlayer:
 
     @property
     def embed(self) -> discord.Embed:
-        song = self.queue[0][0]
+        song, _, requester = self.queue[0]
         assert isinstance(song, Song)
-        requester = self.queue[0][2]
         _e = discord.Embed(
             title=song.title,
             description=f'{song.album} • {song.author}',
@@ -185,23 +180,22 @@ class MusicPlayer:
             self.__stop()
             return
 
+        song, _, requester = self.queue.pop(0)
+        source = asyncio.run(self.get_source(song.source))
+
         if self.play_previous:
-            song, _, requester = self.cache.pop(-1)
-            self.queue.insert(0, (song, asyncio.run(self.get_source(song.source)), requester))
+            self.queue.insert(0, (song, source, requester))
             self.play_previous = False
+        else:
+            if len(self.cache) == 0 or self.cache[-1][0] != song:
+                self.cache.append((song, source, requester))
 
         match self.loop:
-            case 0:
-                self.cache.append(self.queue.pop(0)) # type: ignore
             case 1:
-                self.cache.append(self.queue.pop(0)) # type: ignore
                 if len(self.queue) == 0:
-                    self.queue = [(song, asyncio.run(self.get_source(song.source)), requester) for song, _, requester in self.cache]
+                    self.queue = self.cache.copy()
             case 2:
-                song, _, requester = self.queue.pop(0)
-                if len(self.cache) > 0 and self.cache[-1] != song:
-                    self.cache.append(song) # type: ignore
-                self.queue.insert(0, (song, asyncio.run(self.get_source(song.source)), requester)) # type: ignore
+                self.queue.insert(0, (song, source, requester))
         
         self.__stop()
 
@@ -263,8 +257,6 @@ class MusicPlayer:
                     print("Resumed.")
 
     async def add_song(self, song: Song, requester: User) -> None:
-        print('Adding from reference')
-
         source = await self.get_source(song.source)
         self.queue.append((song, source, requester))
         if self.sleeping:
@@ -272,38 +264,15 @@ class MusicPlayer:
         else:
           await self.__update_player()
 
-    async def add_cached_song(self, url: str, reference: str, interaction: discord.Interaction) -> None:
-        print('Adding from cache')
-        
-        source = await self.get_source(url)
-        self.queue.append(((interaction, url, reference), source, interaction.user))
-        if self.sleeping:
-            await self.play()
-        else:
-            await self.__update_player()
-            self.__searching = True
-            song = search(reference)[0]
-            song.source = url
-            self.queue[-1] = (song, source, interaction.user)
-            await interaction.followup.send('Added to Queue.', embed=song.embed)
-            self.__searching = False
-
     async def play(self) -> None:
         if self.player is None:
             self.player = VPlayer(self)
+            
         while len(self.queue) > 0:
 
-            song, source, requester = self.queue[0]
-            self.__prepare() # Sets self.__playing to True
+            source = self.queue[0][1]
+            self.__prepare() # Creates the task
             self.voice_client.play(source, after=self.__next)
-
-            if not isinstance(song, Song): 
-                if not self.__searching:
-                    interaction, url, reference = song
-                    song = search(reference)[0]
-                    song.source = url
-                    self.queue[0] = (song, source, requester)
-                    await interaction.followup.send("Now playing.")
 
             await self.__update_player()
             if not self.player.message:
