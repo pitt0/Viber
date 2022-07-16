@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 import discord
-import json
 
 from .utils import (
     BadRequest,
@@ -140,13 +139,13 @@ async def choose(interaction: discord.Interaction, reference: str, playable: boo
 
     with SongCache() as cache:
         cache[reference] = song.id
-
+    song.upload()
     return song
 
 @dataclass
 class Song:
 
-    id: int | str
+    id: str
     title: str
     author: str
     album: str
@@ -176,7 +175,7 @@ class Song:
                 cur.execute("SELECT * FROM Songs WHERE Spotify=?;", (self.spotify,))
                 data = cur.fetchone()
             if data is not None:
-                if self.id == data[0]:
+                if self.title == data[1]:
                     return
                 self.update_info()
                 return
@@ -189,11 +188,14 @@ class Song:
         return not self.__eq__(__o)
 
     def upload(self) -> None:
-        with Connector() as cur:
-            cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, Source) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-            (self.id, self.title, self.author, self.album, self.thumbnail, self.duration, self.year, self.spotify, self.youtube, self.source)
-            )
+        try:
+            with Connector() as cur:
+                cur.execute(f"""INSERT INTO Songs (ID, Title, Author, Album, Thumbnail, Duration, Year, Spotify, Youtube, Source) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+                (self.id, self.title, self.author, self.album, self.thumbnail, self.duration, self.year, self.spotify, self.youtube, self.source)
+                )
+        except Exception as e:
+            print(e)
 
     def update_source(self) -> None:
         if self.youtube != '':
@@ -218,8 +220,7 @@ class Song:
     def update_info(self) -> None:
         with Connector() as cur:
             cur.execute("""UPDATE Songs
-            SET ID=?,
-                TItle=?,
+            SET Title=?,
                 Author=?,
                 Album=?,
                 Thumbnail=?,
