@@ -2,7 +2,7 @@ import asyncio
 import discord
 import random
 
-from .song import Song, search
+from .song import Song
 from .utils import FFMPEG_OPTIONS
 
 User = discord.Member | discord.User
@@ -60,6 +60,10 @@ class VPlayer(discord.ui.View):
     @discord.ui.button(emoji='🔁', row=1)
     async def loop(self, interaction: discord.Interaction, _) -> None:
         await self.__player.set_loop(interaction, self.__player.loop + 1 if self.__player.loop != 2 else 0)
+
+    @discord.ui.button(emoji='✒️', row=1, disabled=True)
+    async def lyrics(self, interaction: discord.Interaction, _) -> None:
+        pass
 
         
 
@@ -267,7 +271,7 @@ class MusicPlayer:
     async def play(self) -> None:
         if self.player is None:
             self.player = VPlayer(self)
-            
+
         while len(self.queue) > 0:
 
             source = self.queue[0][1]

@@ -29,33 +29,29 @@ __all__ = (
 
 class SpotifyInfo(dict):
     def __init__(self, **kwargs) -> None:
-        spotify = kwargs['external_urls']['spotify']
-        youtube = ''
-        source = ''
-        with Connector() as cursor:
-            cursor.execute('SELECT * FROM Songs WHERE Spotify=?;', (spotify,))
-            data = cursor.fetchone()
-        if data is not None:
-            youtube = data[-2]
-            source = data[-1]
-            duration = data[5]
-        else:
-            _d = kwargs['duration']//1000
-            mins = _d//60
-            secs = _d - mins * 60
-            if secs < 10:
-                secs = f"0{secs}"
-            duration = f"{mins}:{secs}"
+        title = kwargs['name']
+        author = kwargs['artists'][0]['name']
+
+        yt_data = yt.search(f'{title} {author}')[0]
+        youtube = yt_data['original_url']
+        source = yt_data['url']
+
+        _d = kwargs['duration']//1000
+        mins = _d//60
+        secs = _d - mins * 60
+        if secs < 10:
+            secs = f"0{secs}"
+        duration = f"{mins}:{secs}"
                 
         _dict = {
             'id': kwargs['id'],
-            'title': kwargs['name'],
-            'author': kwargs['artists'][0]['name'],
+            'title': title,
+            'author': author,
             'album': kwargs['album']['name'],
             'thumbnail': kwargs['album']['images'][0]['url'],
             'duration': duration,
             'year': int(kwargs['album']['release_date'][:4]),
-            'spotify': spotify,
+            'spotify': kwargs['external_urls']['spotify'],
             'youtube': youtube,
             'source': source
             }
@@ -63,7 +59,7 @@ class SpotifyInfo(dict):
 
 class YTInfo(dict):
     def __init__(self, **kwargs) -> None:
-        
+
         _dict = {
             'id': kwargs['id'],
             'title': kwargs['title'],
@@ -130,18 +126,21 @@ def search(reference: str, playable: bool = False) -> list['Song']:
 
 async def choose(interaction: discord.Interaction, reference: str, playable: bool = False):
     songs = search(reference, playable)
-    if len(songs) == 1:
-        return songs[0]
-    view = VSong(songs, choice=True)
-    if interaction.response.is_done():
-        await interaction.followup.send(embed=songs[0].embed, view=view, ephemeral=True)
+    
+    if len(songs) > 1:
+        view = VSong(songs, choice=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(embed=songs[0].embed, view=view, ephemeral=True)
+        else:
+            await interaction.response.send_message(embed=songs[0].embed, view=view, ephemeral=True)
+        await view.wait()
+        song = view.current_song
     else:
-        await interaction.response.send_message(embed=songs[0].embed, view=view, ephemeral=True)
-    await view.wait()
-    song = view.current_song
-    if song.source != '':
-        with SongCache() as cache:
-            cache[reference] = song.source
+        song = songs[0]
+
+    with SongCache() as cache:
+        cache[reference] = song.id
+
     return song
 
 @dataclass
@@ -171,6 +170,16 @@ class Song:
         self.embed.set_thumbnail(url=self.thumbnail)
         self.embed.add_field(name='Year', value=self.year)
         self.embed.add_field(name='Duration', value=self.duration)
+        
+        if self.spotify:
+            with Connector() as cur:
+                cur.execute("SELECT * FROM Songs WHERE Spotify=?;", (self.spotify,))
+                data = cur.fetchone()
+            if data is not None:
+                if self.id == data[0]:
+                    return
+                self.update_info()
+                return
         self.upload()
 
     def __eq__(self, __o: object) -> bool:
@@ -205,6 +214,18 @@ class Song:
                     Youtube=?
                 WHERE ID=?;""",
                 (self.source, self.youtube, self.id))
+
+    def update_info(self) -> None:
+        with Connector() as cur:
+            cur.execute("""UPDATE Songs
+            SET ID=?,
+                TItle=?,
+                Author=?,
+                Album=?,
+                Thumbnail=?,
+                Year=?
+            WHERE Spotify=?;""",
+            (self.id, self.title, self.author, self.album, self.thumbnail, self.year, self.spotify))
 
     def cache(self, reference: str) -> None:
         with SongCache() as cache:
