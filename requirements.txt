@@ -4,6 +4,8 @@ discord.py
 # music
 geniuslyrics
 PyNaCl
+spotipy
+yt-dlp
 
 # system
 python-dotenv
