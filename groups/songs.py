@@ -2,8 +2,8 @@ from discord import app_commands as slash
 
 import discord
 
-from models import Advices, Song, choose
-from models.utils.genius import lyrics
+from models import Advices, choose
+from models.utils.genius import lyrics, d_lyrics
 
 class Songs(slash.Group):
     
@@ -12,7 +12,6 @@ class Songs(slash.Group):
         await interaction.response.defer()
         advices = Advices.from_database(to)
         _song = await choose(interaction, song)
-
 
         if _song not in advices.songs:
             advices.add_song(_song)
@@ -32,14 +31,22 @@ class Songs(slash.Group):
         await interaction.followup.send(embed=_song.embed)
 
     @slash.command(name='lyrics', description='Shows the lyrics of a song')
-    async def search_lyrics(self, interaction: discord.Interaction, song: str) -> None:
-        _song = Song.from_reference(song)[0]
-        _song.lyrics = lyrics(_song)
+    async def search_lyrics(self, interaction: discord.Interaction, song: str = '') -> None:
+        if song == '':
+            if isinstance(interaction.user, discord.User) or not isinstance(interaction.user.activity, discord.Spotify):
+                await interaction.response.send_message('You must specify a song.', ephemeral=True)
+                return
+
+            _song = interaction.user.activity
+            song_lyrics = d_lyrics(_song.title, _song.artist)
+        else:                
+            _song = await choose(interaction, song)
+            song_lyrics = lyrics(_song)
         embed = discord.Embed(
-            title=f'{_song.title} by {_song.author}',
-            description=_song.lyrics,
+            title=f"{_song.title} by {_song.author if hasattr(_song, 'author') else _song.artist}", # type: ignore
+            description=song_lyrics,
             color=discord.Color.orange(),
-            url=_song.url
+            url=_song.url if hasattr(_song, 'url') else _song.track_url # type: ignore
         )
 
         await interaction.response.send_message(embed=embed)
