@@ -107,9 +107,9 @@ class BasePlaylist:
         _e = self.__create_embed(1)
         es.append(_e)
         for index, song in enumerate(self.songs):
-            if index // 10 > current:
-                current = index // 10
-                _e = self.__create_embed(index//10)
+            if index // 12 > current:
+                current = index // 12
+                _e = self.__create_embed(index//12)
                 es.append(_e)
             _e.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
         return es
