@@ -36,7 +36,7 @@ class Players:
                         break
                 else:
                     default = interaction.guild.voice_channels[0]
-            await players[interaction.guild.id].connect(default) # type: ignore
+            await self.players[interaction.guild.id].connect(default)
 
         
         for channel in interaction.guild.voice_channels:
