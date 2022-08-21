@@ -1,16 +1,12 @@
-from typing import Literal, TypeAlias
 from discord import app_commands as slash
 from discord.ext import commands
 
 import discord
 
-from models import search, choose as choice, MusicPlayer
+from models import search, choose as choice
+from models import Players
 from models.utils.errors import SearchingException
-from models.utils.genius import lyrics
 
-
-
-GUILD_ID: TypeAlias = int
 
 
 class Player(slash.Group):
@@ -18,44 +14,15 @@ class Player(slash.Group):
     def __init__(self, client: discord.Client):
         super().__init__()
         self.client = client
-        self.players: dict[GUILD_ID, MusicPlayer] = {}
-
+        self.players = Players()
 
     async def send_me(self, text: str) -> None:
         me = await self.client.fetch_user(648939655579828226)
-        await me.send(text)
+        await me.send(f'```{text}```')
 
     def can_connect(self, interaction: discord.Interaction) -> bool:
         assert not isinstance(interaction.user, discord.User)
         return interaction.user.voice is not None and isinstance(interaction.user.voice.channel, discord.VoiceChannel)
-
-    async def load_player(self, interaction: discord.Interaction, default: discord.VoiceChannel | None = None) -> MusicPlayer:
-        assert interaction.guild is not None
-        channel: discord.VoiceChannel
-
-        if interaction.guild.id in self.players:
-            if self.players[interaction.guild.id].voice_client is not None:
-                return self.players[interaction.guild.id]
-            
-            if default is None:
-                for vc in interaction.guild.voice_channels:
-                    if vc.name.lower() == 'viber':
-                        default = vc
-                        break
-                else:
-                    default = interaction.guild.voice_channels[0]
-            await self.players[interaction.guild.id].connect(default) # type: ignore
-
-        
-        for channel in interaction.guild.voice_channels:
-            if channel in self.client.voice_clients:
-                self.players[interaction.guild.id] = MusicPlayer.load(interaction.guild, default or channel) # type: ignore
-                break
-        else:
-            channel = default or interaction.user.voice.channel # type: ignore[valid-type]
-            self.players[interaction.guild.id] = await MusicPlayer.create(interaction.guild, channel)
-
-        return self.players[interaction.guild.id]
 
     async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
         _embed = discord.Embed(
@@ -82,11 +49,10 @@ class Player(slash.Group):
             await interaction.response.send_message(embed=_error_embed)
 
 
-    @commands.Cog.listener('on_voice_state_update')
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         guild: discord.Guild = member.guild
-        print(guild.id)
-        print(self.players)
+        
         if guild.id not in self.players: 
             return
         _player = self.players[guild.id]
@@ -108,7 +74,7 @@ class Player(slash.Group):
         else:
             _channel = channel
 
-        await self.load_player(interaction, _channel)
+        await self.players.load(interaction, _channel)
         await interaction.followup.send(f'Connected to {_channel.mention}')
 
 
@@ -119,20 +85,18 @@ class Player(slash.Group):
         assert not isinstance(interaction.user, discord.User) and interaction.guild is not None
 
         await interaction.response.defer()
-        player = await self.load_player(interaction)
+        player = await self.players.load(interaction)
 
         try:
             if choose:
                 song = await choice(interaction, reference)
             else:
-                song = search(reference)[0]
-                song.lyrics = lyrics(song)
-                song.upload(reference)
+                song = search(reference)
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
             return
         
-        await interaction.followup.send('Added to queue.', embed=song.embed)
+        await interaction.followup.send('Added to queue.', embed=song.embeds[0])
         await player.add_song(song, interaction.user)
 
     @slash.command(name='pause', description='Pauses the song the bot is playing.')
