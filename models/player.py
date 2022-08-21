@@ -304,12 +304,7 @@ class MusicPlayer:
             await self.__update_player()
             self.player.set_embeds([
                 self.embed,
-                discord.Embed(
-                    title=f'{song.title} by {song.author}',
-                    description=song.lyrics,
-                    url=song.url,
-                    color=discord.Color.blue()
-                ) if song.lyrics else None # type: ignore
+                song.embeds[1]
                 ])
             if not self.player.message:
                 self.player.message = await self.channel.send(embed=self.embed, view=self.player)
