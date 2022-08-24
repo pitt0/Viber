@@ -51,6 +51,7 @@ class VPlayer(discord.ui.View):
     async def like(self, interaction: discord.Interaction, _) -> None:
         playlist = LikedSongs.from_database(interaction.user)
         playlist.add_song(self.__player.queue[0][0])
+        await interaction.response.send_message(f"Playlist Updated!", ephemeral=True)
 
     @discord.ui.button(emoji='⏹️', row=1)
     async def stop(self, interaction: discord.Interaction, _) -> None:
@@ -166,7 +167,6 @@ class MusicPlayer:
     @property
     def embed(self) -> discord.Embed:
         song, _, requester = self.queue[0]
-        assert isinstance(song, Song)
         _e = discord.Embed(
             title=song.title,
             description=f'{song.album} • {song.author}',
@@ -207,7 +207,6 @@ class MusicPlayer:
             return
 
         song, _, requester = self.queue.pop(0)
-        print(song.source)
         source = asyncio.run(self.get_source(song.source))
 
         if self.play_previous:
