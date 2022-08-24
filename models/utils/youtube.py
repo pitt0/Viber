@@ -7,8 +7,8 @@ import urllib.request
 
 __all__ = (
     'from_link',
-    'search_urls',
-    'search'
+    'get_urls',
+    'search_infos'
 )
 
 with open('database/options.json') as f:
@@ -19,7 +19,7 @@ yt = yt_dlp.YoutubeDL(OPTS)
 def from_link(link: str) -> dict[str, Any]:
     return yt.extract_info(link, download=False)
 
-def search_urls(query: str) -> list[str]:
+def get_urls(query: str) -> list[str]:
     html = urllib.request.urlopen(f"https://www.youtube.com/results?search_query={query.replace(' ', '+').encode('utf-8')}")
     video_ids = re.findall(r"watch\?v=(\S{11})", html.read().decode())
     ids = []
@@ -27,12 +27,17 @@ def search_urls(query: str) -> list[str]:
 
     return [f"https://www.youtube.com/watch?v={video_id}" for video_id in ids[:5]]
 
-def search(query: str) -> list[dict[str, Any]]:
+def get_url(query: str) -> str:
+    html = urllib.request.urlopen(f"https://www.youtube.com/results?search_query={query.replace(' ', '+').encode('utf-8')}")
+    video_id = re.findall(r"watch\?v=(\S{11})", html.read().decode())[0]
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+def search_infos(query: str) -> list[dict[str, Any]]:
 
     if ' ' in query:
         query = query.replace(' ', '+')
     
-    links = search_urls(query)
+    links = get_urls(query)
 
     infos = []
     for link in links:
@@ -40,3 +45,11 @@ def search(query: str) -> list[dict[str, Any]]:
 
     return infos
 
+def search_info(query: str) -> dict[str, Any]:
+
+    if ' ' in query:
+        query = query.replace(' ', '+')
+    
+    link = get_url(query)
+
+    return from_link(link)

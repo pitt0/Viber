@@ -40,8 +40,8 @@ class SpotifyInfo(dict):
     def __init__(self, **kwargs) -> None:
         title = kwargs['name']
         author = kwargs['artists'][0]['name']
-
-        yt_data = yt.search(f'{title} {author}')[0]
+        
+        yt_data = yt.search_info(f'{title} {author}')
         youtube = yt_data['original_url']
         source = yt_data['url']
 
@@ -78,7 +78,7 @@ class YTInfo(dict):
 
 class DataInfo(dict):
     def __init__(self, *args) -> None:
-        youtube = args[8] or yt.search_urls(args[1] + ' ' + args[2])[0]
+        youtube = args[8] or yt.get_url(args[1] + ' ' + args[2])
         source = args[9] or ''
         if not source:
             data = yt.from_link(youtube)
@@ -106,7 +106,6 @@ class DataInfo(dict):
         super().__init__(_dict)
 
 def fetch_songs(reference: str) -> list['Song']:
-    print('helo')
     songs: list[Song] = []
     if not reference.startswith('http'):
         songs = Song.from_reference(reference)
@@ -224,7 +223,7 @@ class Song:
                 WHERE ID=?;""",
                 (self.source, self.id))
         else:
-            data = yt.search(f'{self.title} {self.author}')[0]
+            data = yt.search_info(f'{self.title} {self.author}')
             self.youtube = data['original_url']
             self.source = data['url']
             with Connector() as cur:
@@ -295,17 +294,17 @@ class Song:
             return [cls.from_cache(reference)]
 
         songs = []
-        info = sp.search(reference)
+        info = sp.search(reference) # song limit set to 5
         if len(info['tracks']['items']) > 0:
+            print("song found on spotify")
             tracks = info['tracks']['items']
-            max_len = 5 if len(tracks) > 5 else len(tracks)
-            for track in tracks[: max_len]:
+            for track in tracks:
                 info = SpotifyInfo(**track)
                 songs.append(cls(**info))
         else:
-            results = yt.search(reference)
-            max_len = 5 if len(results) > 5 else len(results)
-            for result in results[: max_len]:
+            results = yt.search_infos(reference)
+            print("song found on youtube")
+            for result in results:
                 info = YTInfo(**result)
                 songs.append(cls(**info))
         return songs
