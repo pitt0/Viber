@@ -184,6 +184,10 @@ class LikedSongs(BasePlaylist):
     def from_database(cls, person: discord.User | discord.Member) -> 'LikedSongs':
         _songs: list[tuple[str | int, ...]] = []
         with LikedSongsCache() as cache:
+            if str(person.id) not in cache:
+                cache[str(person.id)] = {
+                    'songs': []
+                }
             song_ids = cache[str(person.id)]['songs']
         with Connector() as cur:
             for song_id in song_ids:
