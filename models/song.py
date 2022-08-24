@@ -19,6 +19,8 @@ from .utils import genius
 from .utils import spotify as sp
 from .utils import youtube as yt
 
+from .utils.info import *
+
 from ui.songs import VSong
 
 
@@ -28,114 +30,56 @@ __all__ = (
     'choose'
 )
 
-def duration_string(ms: int) -> str:
-    duration = ms//1000
-    mins = duration//60
-    secs = duration - mins * 60
-    if secs < 10:
-        secs = f"0{secs}"
-    return f"{mins}:{secs}"
 
-class SpotifyInfo(dict):
-    def __init__(self, **kwargs) -> None:
-        title = kwargs['name']
-        author = kwargs['artists'][0]['name']
-        
-        yt_data = yt.search_info(f'{title} {author}')
-        youtube = yt_data['original_url']
-        source = yt_data['url']
+def search_reference(reference: str) -> list['Song']:
+    songs = Song.from_reference(reference)
+    if len(songs) == 0:
+        raise NotFound(f'Searching `{reference}` returned no result.')
 
-        duration = duration_string(kwargs['duration_ms'])
-                
-        _dict = {
-            'id': kwargs['id'],
-            'title': title,
-            'author': author,
-            'album': kwargs['album']['name'],
-            'thumbnail': kwargs['album']['images'][0]['url'],
-            'duration': duration,
-            'year': int(kwargs['album']['release_date'][:4]),
-            'spotify': kwargs['external_urls']['spotify'],
-            'youtube': youtube,
-            'source': source
-            }
-        super().__init__(_dict)
-
-class YTInfo(dict):
-    def __init__(self, **kwargs) -> None:
-        _dict = {
-            'id': kwargs['id'],
-            'title': kwargs['title'],
-            'author': kwargs['uploader'],
-            'album': kwargs.get('album', '\u200b'),
-            'thumbnail': kwargs['thumbnail'],
-            'duration': kwargs['duration_string'],
-            'year': kwargs['upload_date'][:4],
-            'youtube': kwargs['original_url'],
-            'source': kwargs['url']
-        }
-        super().__init__(_dict)
-
-class DataInfo(dict):
-    def __init__(self, *args) -> None:
-        youtube = args[8] or yt.get_url(args[1] + ' ' + args[2])
-        source = args[9] or ''
-        if not source:
-            data = yt.from_link(youtube)
-            source = data['url']
-
-            with Connector() as cur:
-                cur.execute("""UPDATE Songs
-                SET Source=?,
-                    Youtube=?
-                WHERE ID=?;""",
-                (source, youtube, args[0]))
-
-        _dict = {
-            'id': args[0],
-            'title': args[1],
-            'author': args[2],
-            'album': args[3],
-            'thumbnail': args[4],
-            'duration': args[5],
-            'year': args[6],
-            'spotify': args[7],
-            'youtube': youtube,
-            'source': source
-        }
-        super().__init__(_dict)
-
-def fetch_songs(reference: str) -> list['Song']:
-    songs: list[Song] = []
-    if not reference.startswith('http'):
-        songs = Song.from_reference(reference)
-
-        if len(songs) == 0:
-            raise NotFound(f'Searching `{reference}` returned no result.')
-
-    elif 'open.spotify.com' in reference:
-        song = Song.from_spotify(reference)
-        if song is None:
-            raise WrongLink(f'(This link)[{reference}] returned no result.')
-        songs = [song]
-    
-    elif 'youtu.be' in reference or 'youtube.com' in reference:
-        song = Song.from_youtube(reference)
-        songs = [song]
-    
-    else:
-        raise BadRequest(f'(This type of links)[{reference}] are not supported.')
-    
     return songs
 
+def search_spotify(link: str) -> 'Song':
+    song = Song.from_spotify(link)
+    if song is None:
+        raise WrongLink(f'(This link)[{link}] returned no result.')
+    
+    return song
+
+
+def fetch_songs(reference: str) -> list['Song']:
+    if not reference.startswith('http'):
+        return search_reference(reference)
+
+    elif 'open.spotify.com' in reference:
+        return [search_spotify(reference)]
+    
+    elif 'youtu.be' in reference or 'youtube.com' in reference:
+        return [Song.from_youtube(reference)]
+    
+    raise BadRequest(f'(This type of links)[{reference}] are not supported.')
+
+def fetch_song(reference: str) -> 'Song':
+    if not reference.startswith('http'):
+        return Song.first_reference(reference)
+
+    elif 'open.spotify.com' in reference:
+        return search_spotify(reference)
+    
+    elif 'youtu.be' in reference or 'youtube.com' in reference:
+        return Song.from_youtube(reference)
+    
+    raise BadRequest(f'(This type of links)[{reference}] are not supported.')
+    
+
 def search(reference: str) -> 'Song':
-    song = fetch_songs(reference)[0]
+    song = fetch_song(reference)
     song.lyrics = genius.lyrics(song)
     song.upload(reference)
     return song
 
 async def choose(interaction: discord.Interaction, reference: str):
-    songs = fetch_songs(reference)
+    songs = search_reference(reference)
+    song = songs[0]
     
     if len(songs) > 1:
         view = VSong(songs, choice=True)
@@ -145,13 +89,38 @@ async def choose(interaction: discord.Interaction, reference: str):
             await interaction.response.send_message(embed=songs[0].embeds[0], view=view, ephemeral=True)
         await view.wait()
         song = view.current_song
-    else:
-        song = songs[0]
 
     song.lyrics = genius.lyrics(song)
     song.upload(reference)
     return song
 
+
+# TODO: Create different classes of Song that are used for different things, ex: EmbeddableSong, PlayableSong
+
+# # TODO: Create a class to make choose function faster
+# @dataclass
+# class MetaSong:
+
+#     title: str
+#     author: str
+#     album: str
+#     thumbnail: str
+#     duration: str
+#     year: str
+#     url: str
+
+#     def __post_init__(self) -> None:
+#         embed = discord.Embed(
+#             color=discord.Color.dark_purple(),
+#             title=self.title,
+#             description=f'{self.author} • {self.album}',
+#             url=self.url
+#         )
+#         embed.set_thumbnail(url=self.thumbnail)
+#         embed.add_field(name='Year', value=self.year)
+#         embed.add_field(name='Duration', value=self.duration)
+
+#         self.embeds = [embed, None]
 
 
 @dataclass
@@ -294,20 +263,33 @@ class Song:
             return [cls.from_cache(reference)]
 
         songs = []
-        info = sp.search(reference) # song limit set to 5
+        info = sp.search(reference)
         if len(info['tracks']['items']) > 0:
-            print("song found on spotify")
             tracks = info['tracks']['items']
             for track in tracks:
                 info = SpotifyInfo(**track)
                 songs.append(cls(**info))
         else:
             results = yt.search_infos(reference)
-            print("song found on youtube")
             for result in results:
                 info = YTInfo(**result)
                 songs.append(cls(**info))
         return songs
+
+    @classmethod
+    def first_reference(cls, reference: str) -> 'Song':
+        if cls.cached(reference):
+            return cls.from_cache(reference)
+
+        info = sp.search(reference, limit=1)
+        if len(info['tracks']['items']) > 0:
+            track = info['tracks']['items'][0]
+            info = SpotifyInfo(**track)
+            return cls(**info)
+        else:
+            result = yt.search_info(reference)
+            info = YTInfo(**result)
+            return cls(**info)
 
     @classmethod
     def from_spotify(cls, link: str):
@@ -322,39 +304,18 @@ class Song:
         if 'track' not in link:
             return None
 
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] Checking spotify database...")
         track = sp.track(link.split('/')[-1].split('?')[0])
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] Formatting spotify info into dictionary...")
         info = SpotifyInfo(**track)
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] returning...")
         return cls(**info)
 
     @classmethod
     def from_youtube(cls, link: str):
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] Checking database for youtube link...")
         with Connector() as cur:
             cur.execute(f"SELECT * FROM Songs WHERE Youtube='{link}';")
             song = cur.fetchone()
             if song is not None:
                 return cls.from_database(song)
 
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] Checking youtube database...")
         track = yt.from_link(link)
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] Formatting youtube info into dictionary...")
         info = YTInfo(**track)
-        
-        now = datetime.datetime.now()
-        print(f"[{now.strftime('%H:%M:%S')}] returning...")
         return cls(**info)
