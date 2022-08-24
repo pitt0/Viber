@@ -14,8 +14,8 @@ __all__ = (
     'search',
 )
 
-def search(song: str) -> dict[str, Any]:
-    return sp.search(song, limit=5)
+def search(song: str, limit: int = 5) -> dict[str, Any]:
+    return sp.search(song, limit=limit)
 
 
 
