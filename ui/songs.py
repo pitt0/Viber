@@ -38,25 +38,25 @@ class VSong(discord.ui.View):
     async def _to_first(self, interaction: discord.Interaction, _):
         self.index = 0
 
-        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
+        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
 
     @discord.ui.button(label='<')
     async def back(self, interaction: discord.Interaction, _):
         self.index -= 1
 
-        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
+        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
 
     @discord.ui.button(label='>')
     async def fowrard(self, interaction: discord.Interaction, _):
         self.index += 1
 
-        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
+        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
 
     @discord.ui.button(label='>>')
     async def _to_last(self, interaction: discord.Interaction, _):
         self.index = len(self.songs) - 1
 
-        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
+        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
 
     @discord.ui.button(label='✓', style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, _):
