@@ -3,7 +3,7 @@ from discord.ui import TextInput
 import asyncio
 import discord
 
-from models import Playlist, choose
+from models import Playlist, choose, Purpose
 from models.utils.errors import SearchingException
 
 __all__ = (
@@ -153,7 +153,7 @@ class AddSong(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f'Wait for the bot to search for `{self.children[0].value}`', ephemeral=True)
         try:
-            song = await choose(interaction, self.children[0].value) # type: ignore
+            song = await choose(interaction, Purpose.Playlist, self.children[0].value)
         except SearchingException as e:
             await interaction.response.send_message(
                 embed=discord.Embed(
@@ -168,7 +168,7 @@ class AddSong(discord.ui.Modal):
             await interaction.response.send_message("Couldn't find anything.", ephemeral=True)
             return
 
-        self.playlist.add_song(song)
+        self.playlist.add_song(song) # type: ignore
         if interaction.response.is_done():
             await interaction.followup.send(f'`{song.title} by {song.author}` has been added to {self.playlist.name}!')
         else:

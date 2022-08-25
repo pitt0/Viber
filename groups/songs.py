@@ -2,8 +2,9 @@ from discord import app_commands as slash
 
 import discord
 
-from models import Advices, LikedSongs, choose as choice, search
+from models import Advices, LikedSongs, choose as choice, search, Purpose
 from models import Players
+from models import PlayableSong
 from models.utils.errors import SearchingException
 
 
@@ -70,10 +71,13 @@ class Songs(slash.Group):
     async def advice_song(self, interaction: discord.Interaction, song: str, to: discord.Member) -> None:
         await interaction.response.defer()
         advices = Advices.from_database(to)
-        _song = await choice(interaction, song)
+        if not song.startswith('http'):
+            _song = await choice(interaction, Purpose.Playlist, song)
+        else:
+            _song = search(song)
 
         if _song not in advices.songs:
-            advices.add_song(_song)
+            advices.add_song(_song) # type: ignore
             message = f"`{_song.title} • {_song.author}` adviced to {to.mention}"
             ephemeral = False
         else:
@@ -85,11 +89,12 @@ class Songs(slash.Group):
     @slash.command(name='search', description='Searches a song.')
     async def search_song(self, interaction: discord.Interaction, song: str, choose: bool = True) -> None:
         await interaction.response.defer()
+        _song: PlayableSong
         try:
             if choose:
-                _song = await choice(interaction, song)
+                _song = await choice(interaction, Purpose.Play, song) # type: ignore
             else:
-                _song = search(song)
+                _song = search(song) # type: ignore
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
             return
@@ -100,11 +105,12 @@ class Songs(slash.Group):
     @slash.command(name='lyrics', description='Shows the lyrics of a song')
     async def search_lyrics(self, interaction: discord.Interaction, song: str, choose: bool = False) -> None:
         await interaction.response.defer()
+        _song: PlayableSong
         try:
             if choose:
-                _song = await choice(interaction, song)
+                _song = await choice(interaction, Purpose.Lyrics, song) # type: ignore
             else:
-                _song = search(song)
+                _song = search(song) # type: ignore
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
             return

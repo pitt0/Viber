@@ -2,21 +2,20 @@ from typing import TYPE_CHECKING
 import discord
 
 if TYPE_CHECKING:
-    from models import Song
+    from models import (
+        AdviceableSong,
+        ChoosableSong
+        )
 
 
 
 
-class VSong(discord.ui.View):
+class VChoosableSong(discord.ui.View):
 
-    children: list[discord.ui.Button]
-
-    def __init__(self, songs: list['Song'], choice: bool = False):
+    def __init__(self, songs: list['ChoosableSong']):
         super().__init__()
         self.songs = songs
-        self.current_song: 'Song' = self.songs[0]
-        if not choice:
-            self.remove_item(self.children[-1])
+        self.current_song: 'ChoosableSong' = self.songs[0]
         self.index = 0
 
     @property
@@ -29,8 +28,8 @@ class VSong(discord.ui.View):
 
         self.current_song = self.songs[value]
 
-        self.children[0].disabled = self.children[1].disabled = not value
-        self.children[2].disabled = self.children[3].disabled = value == len(self.songs) -1
+        self._to_first.disabled = self.back.disabled = (value == 0)
+        self.forward.disabled = self._to_last.disabled = (value == len(self.songs) -1)
 
         self.__index = value
 
@@ -38,25 +37,25 @@ class VSong(discord.ui.View):
     async def _to_first(self, interaction: discord.Interaction, _):
         self.index = 0
 
-        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
+        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
 
     @discord.ui.button(label='<')
     async def back(self, interaction: discord.Interaction, _):
         self.index -= 1
 
-        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
+        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
 
     @discord.ui.button(label='>')
-    async def fowrard(self, interaction: discord.Interaction, _):
+    async def forward(self, interaction: discord.Interaction, _):
         self.index += 1
 
-        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
+        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
 
     @discord.ui.button(label='>>')
     async def _to_last(self, interaction: discord.Interaction, _):
         self.index = len(self.songs) - 1
 
-        await interaction.response.edit_message(embed=self.current_song.embeds[0], view=self)
+        await interaction.response.edit_message(embed=self.current_song.embed, view=self)
 
     @discord.ui.button(label='✓', style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, _):
@@ -66,3 +65,13 @@ class VSong(discord.ui.View):
         except discord.NotFound:
             print('message not found')
         self.stop()
+
+class VAdviceableSong(discord.ui.View):
+
+    def __init__(self, song: 'AdviceableSong'):
+        super().__init__()
+        self.song = song
+
+    @discord.ui.button(emoji='💟')
+    async def like_song(self, interaction: discord.Interaction, _) -> None:
+        pass

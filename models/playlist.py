@@ -8,7 +8,7 @@ import discord
 
 from connections import *
 from .utils import *
-from .song import Song
+from .song import PlaylistSong
 
 
 __all__ = (
@@ -64,7 +64,7 @@ class BasePlaylist:
     def __init__(self, name: str):
         self.name = name
 
-        self.songs: list[Song] = []
+        self.songs: list[PlaylistSong] = []
 
     def __eq__(self, __o: object) -> bool:
         return isinstance(__o, self.__class__) and __o.id == self.id
@@ -78,7 +78,7 @@ class BasePlaylist:
     def __iter__(self):
         return (song for song in self.songs)
 
-    def __contains__(self, song: Song) -> bool:
+    def __contains__(self, song: PlaylistSong) -> bool:
         return song in self.songs
 
     def __create_embed(self, page: int) -> discord.Embed:
@@ -114,12 +114,10 @@ class BasePlaylist:
             _e.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
         return es
 
-    def add_song(self, song: Song) -> None:
+    def add_song(self, song: PlaylistSong) -> None:
         self.songs.append(song)
-        song.upload()
-        
 
-    def remove_song(self, song: Song) -> None:
+    def remove_song(self, song: PlaylistSong) -> None:
         self.songs.remove(song)
         
     @abstractclassmethod
@@ -131,18 +129,18 @@ class Advices(BasePlaylist):
 
     __slots__ = 'user'
 
-    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[Song]] = None):
+    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[PlaylistSong]] = None):
         super().__init__(f"{user.display_name}'s Advice List")
         self.user = user
         self.id = self.user.id
         self.songs = songs or []
 
-    def add_song(self, song: Song) -> None:
+    def add_song(self, song: PlaylistSong) -> None:
         with AdvicesCache() as cache:
             cache[str(self.id)]["songs"].append(song.id)
         super().add_song(song)
 
-    def remove_song(self, song: Song) -> None:
+    def remove_song(self, song: PlaylistSong) -> None:
         with AdvicesCache() as cache:
             cache[str(self.id)]["songs"].remove(song.id)
         super().remove_song(song)
@@ -156,7 +154,7 @@ class Advices(BasePlaylist):
             for song_id in song_ids:
                 cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
                 _songs.append(cur.fetchone())
-            songs = [Song.from_database(song_info) for song_info in _songs if song_info != None]
+            songs = [PlaylistSong.from_database(song_info) for song_info in _songs if song_info != None]
 
         return cls(person, songs)
 
@@ -164,18 +162,18 @@ class LikedSongs(BasePlaylist):
 
     __slots__ = 'user'
 
-    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[Song]] = None):
+    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[PlaylistSong]] = None):
         super().__init__(f"{user.display_name}'s Advice List")
         self.user = user
         self.id = self.user.id
         self.songs = songs or []
 
-    def add_song(self, song: Song) -> None:
+    def add_song(self, song: PlaylistSong) -> None:
         with LikedSongsCache() as cache:
             cache[str(self.id)]["songs"].append(song.id)
         super().add_song(song)
 
-    def remove_song(self, song: Song) -> None:
+    def remove_song(self, song: PlaylistSong) -> None:
         with LikedSongsCache() as cache:
             cache[str(self.id)]["songs"].remove(song.id)
         super().remove_song(song)
@@ -194,7 +192,7 @@ class LikedSongs(BasePlaylist):
                 cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
                 _songs.append(cur.fetchone())
 
-            songs = [Song.from_database(song_info) for song_info in _songs]
+            songs = [PlaylistSong.from_database(song_info) for song_info in _songs]
 
         return cls(person, songs)
 
@@ -281,12 +279,12 @@ class Playlist(BasePlaylist):
             del ps[str(self.id)]
 
 
-    def add_song(self, song: Song) -> None:
+    def add_song(self, song: PlaylistSong) -> None:
         with PlaylistCache() as cache:
             cache[str(self.id)]["songs"].append(song.id)
         super().add_song(song)
 
-    def remove_song(self, song: Song) -> None:
+    def remove_song(self, song: PlaylistSong) -> None:
         with PlaylistCache() as cache:
             cache[str(self.id)]["songs"].remove(song.id)
         super().remove_song(song)
@@ -322,7 +320,7 @@ class Playlist(BasePlaylist):
         songs = []
         with PlaylistCache() as cache:
             for song_id in cache[str(self.id)]:
-                songs.append(Song.from_id(song_id))
+                songs.append(PlaylistSong.from_id(song_id))
 
         self.songs = songs
 
@@ -345,7 +343,7 @@ class Playlist(BasePlaylist):
 
     def from_youtube(self, info: dict[str, Any]) -> None:
         for entry in info['entries']:
-            self.add_song(Song.from_youtube(entry))
+            self.add_song(PlaylistSong.from_youtube(entry))
 
     @classmethod
     def existing(cls, interaction: discord.Interaction, name: str) -> bool:

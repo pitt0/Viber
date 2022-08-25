@@ -3,7 +3,7 @@ import discord
 import random
 
 from .playlist import LikedSongs
-from .song import Song
+from .song import PlayableSong
 from .utils import FFMPEG_OPTIONS
 
 User = discord.Member | discord.User
@@ -112,8 +112,8 @@ class MusicPlayer:
     guild: discord.Guild
     channel: discord.TextChannel
     voice_client: discord.VoiceClient
-    queue: list[tuple[Song, discord.FFmpegOpusAudio, User]]
-    cache: list[tuple[Song, discord.FFmpegOpusAudio, User]]
+    queue: list[tuple[PlayableSong, discord.FFmpegOpusAudio, User]]
+    cache: list[tuple[PlayableSong, discord.FFmpegOpusAudio, User]]
     play_previous: bool
 
     loop: int
@@ -282,7 +282,7 @@ class MusicPlayer:
                     await self.resume()
                     print("Resumed.")
 
-    async def add_song(self, song: Song, requester: User) -> None:
+    async def add_song(self, song: PlayableSong, requester: User) -> None:
         source = await self.get_source(song.source)
         self.queue.append((song, source, requester))
         if self.sleeping:

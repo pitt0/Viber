@@ -3,7 +3,7 @@ from discord.ext import commands
 
 import discord
 
-from models import search, choose as choice
+from models import search, choose as choice, Purpose
 from models import Players
 from models.utils.errors import SearchingException
 
@@ -89,7 +89,7 @@ class Player(slash.Group):
 
         try:
             if choose:
-                song = await choice(interaction, reference)
+                song = await choice(interaction, Purpose.Play, reference)
             else:
                 song = search(reference)
         except SearchingException as e:
