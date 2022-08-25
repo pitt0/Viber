@@ -81,18 +81,19 @@ async def choose(interaction: discord.Interaction, purpose: Purpose, reference: 
 
     match purpose:
         case Purpose.Advice:
-            return AdviceableSong.from_choice(song)
+            song = AdviceableSong.from_choice(song)
 
         case Purpose.Play:
-            return PlayableSong.from_choice(song)
+            song = PlayableSong.from_choice(song)
 
         case Purpose.Playlist:
-            return PlaylistSong.from_choice(song)
+            song = PlaylistSong.from_choice(song)
 
         case _:
             raise ValueError()
 
-
+    song.cache(reference)
+    return song
 
 @dataclass
 class ChoosableSong:
