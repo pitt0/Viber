@@ -2,12 +2,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing_extensions import Self
 
+import discord
+
 from ..utils import spotify as sp
 from ..utils import youtube as yt
 
 from .info import *
 
 from connections import Connector, SongCache
+from ..playlist import LikedSongs
 
 
 if TYPE_CHECKING:
@@ -39,9 +42,9 @@ class Song:
             result = cur.fetchone()
             if result is None:
                 self.upload()
-            else:
-                if result[7] is None:
-                    self.update_info()
+                return
+            if result[7] is None:
+                self.update_info()
 
     def __eq__(self, __o: object) -> bool:
         return isinstance(__o, Song) and __o.id == self.id
@@ -74,8 +77,12 @@ class Song:
             WHERE Youtube=?;""",
             (self.id, self.title, self.author, self.album, self.thumbnail, self.year, self.spotify, self.youtube))
 
+    def like(self, interaction: discord.Interaction) -> None:
+        playlist = LikedSongs.from_database(interaction.user)
+        playlist.add_song(self) # type: ignore
+
     @classmethod
-    def from_id(cls, id: str | int) -> Self:
+    def from_id(cls, id: str) -> Self:
         with Connector() as cur:
             cur.execute(f"SELECT * FROM Songs WHERE ID=?;", (id,))
             song = cur.fetchone()

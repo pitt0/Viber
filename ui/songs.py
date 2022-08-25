@@ -66,6 +66,8 @@ class VChoosableSong(discord.ui.View):
             print('message not found')
         self.stop()
 
+
+
 class VAdviceableSong(discord.ui.View):
 
     def __init__(self, song: 'AdviceableSong'):
@@ -74,4 +76,5 @@ class VAdviceableSong(discord.ui.View):
 
     @discord.ui.button(emoji='💟')
     async def like_song(self, interaction: discord.Interaction, _) -> None:
-        pass
+        self.song.like(interaction)
+        await interaction.response.send_message(f'`{self.song.title} • {self.song.author}` added to your Liked Songs.')

@@ -72,19 +72,21 @@ class Songs(slash.Group):
         await interaction.response.defer()
         advices = Advices.from_database(to)
         if not song.startswith('http'):
-            _song = await choice(interaction, Purpose.Playlist, song)
+            _song = await choice(interaction, Purpose.Advice, song)
         else:
             _song = search(song)
 
         if _song not in advices.songs:
             advices.add_song(_song) # type: ignore
-            message = f"`{_song.title} • {_song.author}` adviced to {to.mention}"
+            message = f"Adviced to {to.mention}"
+            embeds = [_song.embed] # type: ignore
             ephemeral = False
         else:
             message = f"This song is already in {to.display_name}'s advice list"
+            embeds = []
             ephemeral = True
 
-        await interaction.followup.send(message, ephemeral=ephemeral)
+        await interaction.followup.send(message, embeds=embeds, ephemeral=ephemeral)
 
     @slash.command(name='search', description='Searches a song.')
     async def search_song(self, interaction: discord.Interaction, song: str, choose: bool = True) -> None:

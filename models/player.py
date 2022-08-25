@@ -27,6 +27,10 @@ class VPlayer(discord.ui.View):
     def set_embeds(self, embeds: list[discord.Embed]) -> None:
         self.embeds = embeds
 
+    @property
+    def song(self) -> PlayableSong:
+        return self.__player.queue[0][0]
+
     @discord.ui.button(emoji='⏪', disabled=True)
     async def previous(self, interaction: discord.Interaction, _) -> None:
         self.__player.play_previous = True
@@ -49,8 +53,7 @@ class VPlayer(discord.ui.View):
 
     @discord.ui.button(emoji='💟')
     async def like(self, interaction: discord.Interaction, _) -> None:
-        playlist = LikedSongs.from_database(interaction.user)
-        playlist.add_song(self.__player.queue[0][0])
+        self.song.like(interaction)
         await interaction.response.send_message(f"Playlist Updated!", ephemeral=True)
 
     @discord.ui.button(emoji='⏹️', row=1)

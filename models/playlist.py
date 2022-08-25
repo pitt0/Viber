@@ -1,14 +1,15 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
 from string import printable
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import datetime
 import discord
 
 from connections import *
 from .utils import *
-from .song import PlaylistSong
+
+
 
 
 __all__ = (
@@ -17,7 +18,6 @@ __all__ = (
     'Playlist',
 
     'CachedPlaylist',
-    'EmbeddablePlaylist'
 )
 
 
@@ -64,7 +64,7 @@ class BasePlaylist:
     def __init__(self, name: str):
         self.name = name
 
-        self.songs: list[PlaylistSong] = []
+        self.songs = []
 
     def __eq__(self, __o: object) -> bool:
         return isinstance(__o, self.__class__) and __o.id == self.id
@@ -78,7 +78,7 @@ class BasePlaylist:
     def __iter__(self):
         return (song for song in self.songs)
 
-    def __contains__(self, song: PlaylistSong) -> bool:
+    def __contains__(self, song) -> bool:
         return song in self.songs
 
     def __create_embed(self, page: int) -> discord.Embed:
@@ -114,10 +114,10 @@ class BasePlaylist:
             _e.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
         return es
 
-    def add_song(self, song: PlaylistSong) -> None:
+    def add_song(self, song) -> None:
         self.songs.append(song)
 
-    def remove_song(self, song: PlaylistSong) -> None:
+    def remove_song(self, song) -> None:
         self.songs.remove(song)
         
     @abstractclassmethod
@@ -129,24 +129,27 @@ class Advices(BasePlaylist):
 
     __slots__ = 'user'
 
-    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[PlaylistSong]] = None):
+    def __init__(self, user: discord.User | discord.Member, songs: list | None = None):
         super().__init__(f"{user.display_name}'s Advice List")
         self.user = user
         self.id = self.user.id
         self.songs = songs or []
 
-    def add_song(self, song: PlaylistSong) -> None:
+    def add_song(self, song) -> None:
         with AdvicesCache() as cache:
             cache[str(self.id)]["songs"].append(song.id)
         super().add_song(song)
 
-    def remove_song(self, song: PlaylistSong) -> None:
+    def remove_song(self, song) -> None:
         with AdvicesCache() as cache:
             cache[str(self.id)]["songs"].remove(song.id)
         super().remove_song(song)
 
     @classmethod
     def from_database(cls, person: discord.User | discord.Member) -> 'Advices':
+        
+        from .song import PlaylistSong
+
         _songs: list[tuple[str | int, ...]] = []
         with AdvicesCache() as cache:
             song_ids = cache[str(person.id)]['songs']
@@ -162,24 +165,27 @@ class LikedSongs(BasePlaylist):
 
     __slots__ = 'user'
 
-    def __init__(self, user: discord.User | discord.Member, songs: Optional[list[PlaylistSong]] = None):
+    def __init__(self, user: discord.User | discord.Member, songs: list | None = None):
         super().__init__(f"{user.display_name}'s Advice List")
         self.user = user
         self.id = self.user.id
         self.songs = songs or []
 
-    def add_song(self, song: PlaylistSong) -> None:
+    def add_song(self, song) -> None:
         with LikedSongsCache() as cache:
             cache[str(self.id)]["songs"].append(song.id)
         super().add_song(song)
 
-    def remove_song(self, song: PlaylistSong) -> None:
+    def remove_song(self, song) -> None:
         with LikedSongsCache() as cache:
             cache[str(self.id)]["songs"].remove(song.id)
         super().remove_song(song)
 
     @classmethod
     def from_database(cls, person: discord.User | discord.Member) -> 'LikedSongs':
+
+        from .song import PlaylistSong
+
         _songs: list[tuple[str | int, ...]] = []
         with LikedSongsCache() as cache:
             if str(person.id) not in cache:
@@ -279,12 +285,12 @@ class Playlist(BasePlaylist):
             del ps[str(self.id)]
 
 
-    def add_song(self, song: PlaylistSong) -> None:
+    def add_song(self, song) -> None:
         with PlaylistCache() as cache:
             cache[str(self.id)]["songs"].append(song.id)
         super().add_song(song)
 
-    def remove_song(self, song: PlaylistSong) -> None:
+    def remove_song(self, song) -> None:
         with PlaylistCache() as cache:
             cache[str(self.id)]["songs"].remove(song.id)
         super().remove_song(song)
@@ -303,6 +309,9 @@ class Playlist(BasePlaylist):
 
     @classmethod
     async def from_database(cls, interaction: discord.Interaction, reference: str) -> 'Playlist':
+
+        from .song import PlaylistSong
+
         with Connector() as cur:
             cur.execute("SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (reference, interaction.guild.id, interaction.user.id)) # type: ignore
             playlist = cur.fetchone()
@@ -342,6 +351,8 @@ class Playlist(BasePlaylist):
         return embeddable
 
     def from_youtube(self, info: dict[str, Any]) -> None:
+        from .song import PlaylistSong
+
         for entry in info['entries']:
             self.add_song(PlaylistSong.from_youtube(entry))
 
