@@ -19,25 +19,22 @@ yt = yt_dlp.YoutubeDL(OPTS)
 def from_link(link: str) -> dict[str, Any]:
     return yt.extract_info(link, download=False)
 
-def get_urls(query: str) -> list[str]:
+def get_ids(query: str) -> list[str]:
+    query = query.replace(' ', '+')
     html = urllib.request.urlopen(f"https://www.youtube.com/results?search_query={query.replace(' ', '+').encode('utf-8')}")
-    video_ids = re.findall(r"watch\?v=(\S{11})", html.read().decode())
-    ids = []
-    [ids.append(video_id) for video_id in video_ids if video_id not in ids]
+    return re.findall(r"watch\?v=(\S{11})", html.read().decode())
 
-    return [f"https://www.youtube.com/watch?v={video_id}" for video_id in ids[:5]]
-
-def get_url(query: str) -> str:
-    html = urllib.request.urlopen(f"https://www.youtube.com/results?search_query={query.replace(' ', '+').encode('utf-8')}")
-    video_id = re.findall(r"watch\?v=(\S{11})", html.read().decode())[0]
+def get_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
+
+def get_urls(video_ids: list[str]) -> list[str]:
+    return [get_url(video_id) for video_id in video_ids]
+
 
 def search_infos(query: str) -> list[dict[str, Any]]:
 
-    if ' ' in query:
-        query = query.replace(' ', '+')
-    
-    links = get_urls(query)
+    video_ids = get_ids(query)
+    links = get_urls([*set(video_ids)][: 5])
 
     infos = []
     for link in links:
@@ -47,9 +44,7 @@ def search_infos(query: str) -> list[dict[str, Any]]:
 
 def search_info(query: str) -> dict[str, Any]:
 
-    if ' ' in query:
-        query = query.replace(' ', '+')
-    
-    link = get_url(query)
+    video_id = get_ids(query)[0]
+    link = get_url(video_id)
 
     return from_link(link)
