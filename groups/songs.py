@@ -7,6 +7,8 @@ from models import Players
 from models import PlayableSong
 from models.utils.errors import SearchingException
 
+from ui import VAdviceableSong
+
 
 __all__ = (
     'Songs',
@@ -76,17 +78,17 @@ class Songs(slash.Group):
         else:
             _song = search(song)
 
+        embed = _song.embed # type: ignore
+        view = VAdviceableSong(_song) # type: ignore
+
         if _song not in advices.songs:
             advices.add_song(_song) # type: ignore
             message = f"Adviced to {to.mention}"
-            embeds = [_song.embed] # type: ignore
-            ephemeral = False
+            
         else:
             message = f"This song is already in {to.display_name}'s advice list"
-            embeds = []
-            ephemeral = True
 
-        await interaction.followup.send(message, embeds=embeds, ephemeral=ephemeral)
+        await interaction.followup.send(message, embed=embed, view=view)
 
     @slash.command(name='search', description='Searches a song.')
     async def search_song(self, interaction: discord.Interaction, song: str, choose: bool = True) -> None:
