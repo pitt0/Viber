@@ -1,15 +1,13 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
 from string import printable
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional
 
 import datetime
 import discord
 
 from connections import *
 from .utils import *
-
-
 
 
 __all__ = (
@@ -152,6 +150,10 @@ class Advices(BasePlaylist):
 
         _songs: list[tuple[str | int, ...]] = []
         with AdvicesCache() as cache:
+            if str(person.id) not in cache:
+                cache[str(person.id)] = {
+                    'songs': []
+                }
             song_ids = cache[str(person.id)]['songs']
         with Connector() as cur:
             for song_id in song_ids:

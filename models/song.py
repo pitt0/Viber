@@ -38,29 +38,36 @@ class Purpose(Enum):
     Playlist = auto()
     Lyrics = auto()
 
-def search_spotify(link: str) -> MetaSong:
-    song = PlayableSong.from_spotify(link)
-    if song is None:
-        raise WrongLink(f'(This link)[{link}] returned no result.')
-    
-    return song
 
-
-def fetch_song(reference: str) -> MetaSong:
+def fetch_song(reference: str, purpose: Purpose) -> MetaSong:
+    match purpose:
+        case Purpose.Play | Purpose.Lyrics:
+            song_type = PlayableSong
+        case Purpose.Playlist:
+            song_type = PlaylistSong
+        case Purpose.Advice:
+            song_type = AdviceableSong
+        case _:
+            raise ValueError()
+         
     if not reference.startswith('http'):
-        return PlayableSong.from_reference(reference)
+        return song_type.from_reference(reference)
 
     elif 'open.spotify.com' in reference:
-        return search_spotify(reference)
+        song = song_type.from_spotify(reference)
+        if song is None:
+            raise WrongLink(f'(This link)[{reference}] returned no result.')
+        
+        return song
     
     elif 'youtu.be' in reference or 'youtube.com' in reference:
-        return PlayableSong.from_youtube(reference)
+        return song_type.from_youtube(reference)
     
     raise BadRequest(f'(This type of links)[{reference}] are not supported.')
     
 
-def search(reference: str) -> MetaSong:
-    song = fetch_song(reference)
+def search(purpose: Purpose, reference: str) -> MetaSong:
+    song = fetch_song(reference, purpose)
     song.cache(reference)
     return song
 
@@ -83,7 +90,7 @@ async def choose(interaction: discord.Interaction, purpose: Purpose, reference: 
         case Purpose.Advice:
             song = AdviceableSong.from_choice(song)
 
-        case Purpose.Play:
+        case Purpose.Play | Purpose.Lyrics:
             song = PlayableSong.from_choice(song)
 
         case Purpose.Playlist:

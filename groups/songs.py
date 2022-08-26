@@ -76,7 +76,7 @@ class Songs(slash.Group):
         if not song.startswith('http'):
             _song = await choice(interaction, Purpose.Advice, song)
         else:
-            _song = search(song)
+            _song = search(Purpose.Advice, song)
 
         embed = _song.embed # type: ignore
         view = VAdviceableSong(_song) # type: ignore
@@ -98,7 +98,7 @@ class Songs(slash.Group):
             if choose:
                 _song = await choice(interaction, Purpose.Play, song) # type: ignore
             else:
-                _song = search(song) # type: ignore
+                _song = search(Purpose.Play, song) # type: ignore
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
             return
@@ -114,7 +114,7 @@ class Songs(slash.Group):
             if choose:
                 _song = await choice(interaction, Purpose.Lyrics, song) # type: ignore
             else:
-                _song = search(song) # type: ignore
+                _song = search(Purpose.Play, song) # type: ignore
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
             return

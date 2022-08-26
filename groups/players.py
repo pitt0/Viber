@@ -91,7 +91,7 @@ class Player(slash.Group):
             if choose:
                 song = await choice(interaction, Purpose.Play, reference)
             else:
-                song = search(reference)
+                song = search(Purpose.Play, reference)
         except SearchingException as e:
             await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
             return
