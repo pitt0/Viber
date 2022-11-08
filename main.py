@@ -2,10 +2,9 @@ from discord import app_commands
 import discord
 
 # system
-import datetime
 from dotenv import load_dotenv
 import os
-import pytz
+from models import Time
 
 # slash groups
 from groups.playlists import Playlists
@@ -26,8 +25,7 @@ async def on_ready():
     load_commands()
     await tree.sync()
 
-    now = datetime.datetime.now(tz=pytz.timezone('Europe/Rome'))
-    print(f"[{now.strftime('%H:%M:%S')}] Viber is online")
+    print(f"[{Time.now()}] Viber is online")
     
     activity = discord.Activity(name='Music', type=discord.ActivityType.listening)
     await client.change_presence(activity=activity)

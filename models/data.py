@@ -17,10 +17,14 @@ GUILD_ID: TypeAlias = int
 
 # Classes
 class Time(datetime.datetime):
+    
+    def __str__(self):
+        return f"{self:%H:%M:%S}"
 
-    @property
-    def now(self) -> datetime.datetime:
-        return super().now()
+    @classmethod
+    def today(cls):
+        now = cls.now()
+        return f"{now:%d/%m/%y}"
 
 
 class Players:

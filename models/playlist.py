@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from string import printable
 from typing import Any, Optional
 
-import datetime
 import discord
 
 from connections import *
+from data import Time
 from .utils import *
 
 
@@ -302,7 +302,7 @@ class Playlist(BasePlaylist):
         return cls(
             id=cls.__create_id(name),
             name=name,
-            date=datetime.datetime.now().strftime("%d/%m/%y"),
+            date=Time.today(),
             private=(password != ''),
             password=password,
             author=interaction.user,

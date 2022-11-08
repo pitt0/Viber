@@ -18,13 +18,13 @@ class Connector:
         self.connection = sql.connect("database/music.sqlite")
 
     def __enter__(self):
-        print(f"[{Time.now:%H:%M:%S}] Opening Database")
+        print(f"[{Time.now()}] Opening Database")
         return self.connection.cursor()
 
     def __exit__(self, *args):
-        print(f"[{Time.now:%H:%M:%S}] Committing...")
+        print(f"[{Time.now()}] Committing...")
         self.connection.commit()
-        print(f"[{Time.now:%H:%M:%S}] Closing Database")
+        print(f"[{Time.now()}] Closing Database")
         self.connection.close()
 
 
@@ -38,16 +38,16 @@ class CacheFile:
     cache: dict[str, Any]
 
     def __enter__(self) -> dict[str, Any]:
-        print(f"[{Time.now:%H:%M:%S}] Opening {self.file}")
+        print(f"[{Time.now()}] Opening {self.file}")
         with open(self.folder + self.file) as f:
             self.cache = json.load(f)
             return self.cache
 
     def __exit__(self, *_):
-        print(f"[{Time.now:%H:%M:%S}] Committing to {self.file}...")
+        print(f"[{Time.now()}] Committing to {self.file}...")
         with open(self.folder + self.file, "w") as f:
             json.dump(self.cache, f, indent=4)
-        print(f"[{Time.now:%H:%M:%S}] Closing {self.file}")
+        print(f"[{Time.now()}] Closing {self.file}")
 
 
 class PlaylistCache(CacheFile):
