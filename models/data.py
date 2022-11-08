@@ -1,15 +1,27 @@
 from typing import TypeAlias
 
+import datetime
 import discord
 
 from .player import MusicPlayer
 
 
 __all__ = (
-    'Players',
+    "Players",
+    "Time"
 )
 
+# TypeAliases
 GUILD_ID: TypeAlias = int
+
+
+# Classes
+class Time(datetime.datetime):
+
+    @property
+    def now(self) -> datetime.datetime:
+        return super().now()
+
 
 class Players:
 
@@ -31,7 +43,7 @@ class Players:
             
             if default is None:
                 for vc in interaction.guild.voice_channels:
-                    if vc.name.lower() == 'viber':
+                    if vc.name.lower() == "viber":
                         default = vc
                         break
                 else:
