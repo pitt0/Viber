@@ -1,7 +1,7 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
 from string import printable
-from typing import Any, Optional
+from typing import Any, Optional, Self
 
 import discord
 
@@ -26,7 +26,7 @@ class CachedPlaylist:
     author: int
 
     @classmethod
-    def load(cls) -> list["CachedPlaylist"]:
+    def load(cls) -> list[Self]:
         cache = []
         with Connector() as cur:
             cur.execute("SELECT * FROM Playlists;")
@@ -119,7 +119,7 @@ class BasePlaylist:
         self.songs.remove(song)
         
     @abstractclassmethod
-    def from_database(cls, _) -> Optional["BasePlaylist"]:
+    def from_database(cls, _) -> Optional[Self]:
         """Retrives the Playlist from the DataBase"""
 
 
@@ -282,7 +282,7 @@ class Playlist(BasePlaylist):
 
     def delete(self) -> None:
         with Connector() as cur:
-            cur.execute(f"DELETE FROM Playlists WHERE ID={self.id};")
+            cur.execute(f"DELETE FROM Playlists WHERE ID=?;", (self.id,))
         with PlaylistCache() as ps:
             del ps[str(self.id)]
 
