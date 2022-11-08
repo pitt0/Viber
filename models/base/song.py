@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..song import ChoosableSong
 
 
-__all__ = ('Song',)
+__all__ = ("Song",)
 
 @dataclass
 class Song:
@@ -30,10 +30,10 @@ class Song:
     duration: str
     year: int
 
-    spotify: str = ''
-    youtube: str = ''
+    spotify: str = ""
+    youtube: str = ""
 
-    source: str = ''
+    source: str = ""
 
     def __post_init__(self) -> None:
         self.url = self.spotify or self.youtube
@@ -94,12 +94,12 @@ class Song:
         return cls(**info)
 
     @classmethod
-    def from_choice(cls, choice: 'ChoosableSong') -> Self:
+    def from_choice(cls, choice: "ChoosableSong") -> Self:
         data = ChoiceInfo(choice)
         return cls(**data)
 
     @classmethod
-    def from_cache(cls, reference: str) -> 'Song':
+    def from_cache(cls, reference: str) -> "Song":
         with SongCache() as cache:
             song_id = cache[reference]
         with Connector() as cur:
@@ -114,8 +114,8 @@ class Song:
             return cls.from_cache(reference)
 
         info = sp.search(reference, limit=1)
-        if len(info['tracks']['items']) > 0:
-            track = info['tracks']['items'][0]
+        if len(info["tracks"]["items"]) > 0:
+            track = info["tracks"]["items"][0]
             info = SpotifyInfo(**track)
             return cls(**info)
         else:
@@ -126,22 +126,22 @@ class Song:
     @classmethod
     def from_spotify(cls, link: str):
         with Connector() as cur:
-            cur.execute(f"SELECT * FROM Songs WHERE Spotify='{link}';")
+            cur.execute(f"SELECT * FROM Songs WHERE Spotify=?;", (link,))
             song = cur.fetchone()
             if song is not None:
                 return cls.from_database(song)
 
-        if 'track' not in link:
+        if "track" not in link:
             return None
 
-        track = sp.track(link.split('/')[-1].split('?')[0])
+        track = sp.track(link.split("/")[-1].split("?")[0])
         info = SpotifyInfo(**track)
         return cls(**info)
 
     @classmethod
     def from_youtube(cls, link: str):
         with Connector() as cur:
-            cur.execute(f"SELECT * FROM Songs WHERE Youtube='{link}';")
+            cur.execute(f"SELECT * FROM Songs WHERE Youtube=?;", (link,))
             song = cur.fetchone()
             if song is not None:
                 return cls.from_database(song)

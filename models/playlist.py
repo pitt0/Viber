@@ -11,11 +11,11 @@ from .utils import *
 
 
 __all__ = (
-    'Advices',
-    'LikedSongs',
-    'Playlist',
+    "Advices",
+    "LikedSongs",
+    "Playlist",
 
-    'CachedPlaylist',
+    "CachedPlaylist",
 )
 
 
@@ -26,7 +26,7 @@ class CachedPlaylist:
     author: int
 
     @classmethod
-    def load(cls) -> list['CachedPlaylist']:
+    def load(cls) -> list["CachedPlaylist"]:
         cache = []
         with Connector() as cur:
             cur.execute("SELECT * FROM Playlists;")
@@ -52,9 +52,9 @@ class EmbeddablePlaylist:
 class BasePlaylist:
     
     __slots__ = (
-        'name',
-        'songs',
-        'id'
+        "name",
+        "songs",
+        "id"
     )
 
     id: int
@@ -71,7 +71,7 @@ class BasePlaylist:
         return not self.__eq__(__o)
 
     def __repr__(self) -> str:
-        return f'{self.name}#{self.id}'
+        return f"{self.name}#{self.id}"
 
     def __iter__(self):
         return (song for song in self.songs)
@@ -80,7 +80,7 @@ class BasePlaylist:
         return song in self.songs
 
     def __create_embed(self, page: int) -> discord.Embed:
-        if hasattr(self, 'user'):
+        if hasattr(self, "user"):
             target = self.user # type: ignore
         else:
             target = self.author # type: ignore
@@ -89,7 +89,7 @@ class BasePlaylist:
             description=f"by {target.display_name}",
             color=discord.Color.blurple()
         )
-        _e.set_footer(text=f'Page {page}')
+        _e.set_footer(text=f"Page {page}")
         return _e
 
 
@@ -99,18 +99,18 @@ class BasePlaylist:
 
     @property
     def embeds(self) -> list[discord.Embed]:
-        es = []
-        current = 0
-
-        _e = self.__create_embed(1)
-        es.append(_e)
+        embeds: list[discord.Embed] = []
+        
         for index, song in enumerate(self.songs):
-            if index // 12 > current:
-                current = index // 12
-                _e = self.__create_embed(index//12)
-                es.append(_e)
-            _e.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
-        return es
+            page = (index // 12) + 1
+
+            if page > len(embeds):
+                embeds.append(self.__create_embed(page))
+            
+            current = embeds[-1]
+            current.add_field(name=song.title, value=f"{song.author} • {song.album}", inline=True)
+        
+        return embeds
 
     def add_song(self, song) -> None:
         self.songs.append(song)
@@ -119,13 +119,13 @@ class BasePlaylist:
         self.songs.remove(song)
         
     @abstractclassmethod
-    def from_database(cls, _) -> Optional['BasePlaylist']:
+    def from_database(cls, _) -> Optional["BasePlaylist"]:
         """Retrives the Playlist from the DataBase"""
 
 
 class Advices(BasePlaylist):
 
-    __slots__ = 'user'
+    __slots__ = "user"
 
     def __init__(self, user: discord.User | discord.Member, songs: list | None = None):
         super().__init__(f"{user.display_name}'s Advice List")
@@ -144,7 +144,7 @@ class Advices(BasePlaylist):
         super().remove_song(song)
 
     @classmethod
-    def from_database(cls, person: discord.User | discord.Member) -> 'Advices':
+    def from_database(cls, person: discord.User | discord.Member) -> "Advices":
         
         from .song import PlaylistSong
 
@@ -152,9 +152,9 @@ class Advices(BasePlaylist):
         with AdvicesCache() as cache:
             if str(person.id) not in cache:
                 cache[str(person.id)] = {
-                    'songs': []
+                    "songs": []
                 }
-            song_ids = cache[str(person.id)]['songs']
+            song_ids = cache[str(person.id)]["songs"]
         with Connector() as cur:
             for song_id in song_ids:
                 cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
@@ -165,7 +165,7 @@ class Advices(BasePlaylist):
 
 class LikedSongs(BasePlaylist):
 
-    __slots__ = 'user'
+    __slots__ = "user"
 
     def __init__(self, user: discord.User | discord.Member, songs: list | None = None):
         super().__init__(f"{user.display_name}'s Advice List")
@@ -184,7 +184,7 @@ class LikedSongs(BasePlaylist):
         super().remove_song(song)
 
     @classmethod
-    def from_database(cls, person: discord.User | discord.Member) -> 'LikedSongs':
+    def from_database(cls, person: discord.User | discord.Member) -> "LikedSongs":
 
         from .song import PlaylistSong
 
@@ -192,9 +192,9 @@ class LikedSongs(BasePlaylist):
         with LikedSongsCache() as cache:
             if str(person.id) not in cache:
                 cache[str(person.id)] = {
-                    'songs': []
+                    "songs": []
                 }
-            song_ids = cache[str(person.id)]['songs']
+            song_ids = cache[str(person.id)]["songs"]
         with Connector() as cur:
             for song_id in song_ids:
                 cur.execute(f"SELECT * FROM Songs WHERE ID=?", (song_id,))
@@ -208,11 +208,11 @@ class LikedSongs(BasePlaylist):
 class Playlist(BasePlaylist):
 
     __slots__ = (
-        'author',
-        'date',
-        'guild',
-        'password',
-        'private',
+        "author",
+        "date",
+        "guild",
+        "password",
+        "private",
     )
 
     guild: discord.Guild | discord.User | discord.Member
@@ -240,7 +240,7 @@ class Playlist(BasePlaylist):
     @staticmethod
     def __create_id(name: str) -> int:
         name = name.lower()
-        return int(f'{len(name)}{printable.find(name[0])}{printable.find(name[round(len(name)/2)])}{printable.find(name[-1])}')
+        return int(f"{len(name)}{printable.find(name[0])}{printable.find(name[round(len(name)/2)])}{printable.find(name[-1])}")
     
     def rename(self, name: str):
         self.name = name
@@ -278,7 +278,7 @@ class Playlist(BasePlaylist):
             cur.execute(f"""INSERT INTO Playlists (ID, Title, Date, Locked, Keyword, Author, Guild) 
             VALUES ({self.id}, ?, ?, {self.private}, ?, ?, ?);""", (self.name, self.date, self.password, self.author.id, self.guild.id))
         with PlaylistCache() as cache:
-            cache[str(self.id)]['songs'] = [song.id for song in self.songs]
+            cache[str(self.id)]["songs"] = [song.id for song in self.songs]
 
     def delete(self) -> None:
         with Connector() as cur:
@@ -298,19 +298,19 @@ class Playlist(BasePlaylist):
         super().remove_song(song)
     
     @classmethod
-    def new(cls, name: str, interaction: discord.Interaction, password: str) -> 'Playlist':
+    def new(cls, name: str, interaction: discord.Interaction, password: str) -> "Playlist":
         return cls(
             id=cls.__create_id(name),
             name=name,
             date=Time.today(),
-            private=(password != ''),
+            private=(password != ""),
             password=password,
             author=interaction.user,
             guild=interaction.guild
         )
 
     @classmethod
-    async def from_database(cls, interaction: discord.Interaction, reference: str) -> 'Playlist':
+    async def from_database(cls, interaction: discord.Interaction, reference: str) -> "Playlist":
 
         from .song import PlaylistSong
 
@@ -319,10 +319,10 @@ class Playlist(BasePlaylist):
             playlist = cur.fetchone()
 
         kwargs = {
-            'name': playlist[1],
-            'interaction': interaction,
-            'id': playlist[0],
-            'password': playlist[3]
+            "name": playlist[1],
+            "interaction": interaction,
+            "id": playlist[0],
+            "password": playlist[3]
         }
 
         self = cls(**kwargs)
@@ -355,7 +355,7 @@ class Playlist(BasePlaylist):
     def from_youtube(self, info: dict[str, Any]) -> None:
         from .song import PlaylistSong
 
-        for entry in info['entries']:
+        for entry in info["entries"]:
             self.add_song(PlaylistSong.from_youtube(entry))
 
     @classmethod

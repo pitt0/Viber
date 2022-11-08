@@ -22,13 +22,13 @@ from ui.songs import VChoosableSong
 
 
 __all__ = (
-    'AdviceableSong',
-    'ChoosableSong',
-    'PlayableSong',
+    "AdviceableSong",
+    "ChoosableSong",
+    "PlayableSong",
 
-    'search',
-    'choose',
-    'Purpose'
+    "search",
+    "choose",
+    "Purpose"
 )
 
 
@@ -50,20 +50,20 @@ def fetch_song(reference: str, purpose: Purpose) -> MetaSong:
         case _:
             raise ValueError()
          
-    if not reference.startswith('http'):
+    if not reference.startswith("http"):
         return song_type.from_reference(reference)
 
-    elif 'open.spotify.com' in reference:
+    elif "open.spotify.com" in reference:
         song = song_type.from_spotify(reference)
         if song is None:
-            raise WrongLink(f'(This link)[{reference}] returned no result.')
+            raise WrongLink(f"(This link)[{reference}] returned no result.")
         
         return song
     
-    elif 'youtu.be' in reference or 'youtube.com' in reference:
+    elif "youtu.be" in reference or "youtube.com" in reference:
         return song_type.from_youtube(reference)
     
-    raise BadRequest(f'(This type of links)[{reference}] are not supported.')
+    raise BadRequest(f"(This type of links)[{reference}] are not supported.")
     
 
 def search(purpose: Purpose, reference: str) -> MetaSong:
@@ -74,7 +74,7 @@ def search(purpose: Purpose, reference: str) -> MetaSong:
 async def choose(interaction: discord.Interaction, purpose: Purpose, reference: str) -> MetaSong:
     songs = ChoosableSong.from_reference(reference)
     if len(songs) == 0:
-        raise NotFound(f'Searching `{reference}` returned no result.')
+        raise NotFound(f"Searching `{reference}` returned no result.")
     song = songs[0]
     
     if len(songs) > 1:
@@ -118,12 +118,12 @@ class ChoosableSong:
         embed = discord.Embed(
             color=discord.Color.dark_purple(),
             title=self.title,
-            description=f'{self.author} • {self.album}',
+            description=f"{self.author} • {self.album}",
             url=self.url
         )
         embed.set_thumbnail(url=self.thumbnail)
-        embed.add_field(name='Year', value=self.year)
-        embed.add_field(name='Duration', value=self.duration)
+        embed.add_field(name="Year", value=self.year)
+        embed.add_field(name="Duration", value=self.duration)
 
         self.embed = embed
 
@@ -131,8 +131,8 @@ class ChoosableSong:
     def from_reference(cls, reference: str) -> list[Self]:
         songs = []
         info = sp.search(reference)
-        if len(info['tracks']['items']) > 0:
-            tracks = info['tracks']['items']
+        if len(info["tracks"]["items"]) > 0:
+            tracks = info["tracks"]["items"]
             for track in tracks:
                 info = SpotifyInfo(choosable=True, **track)
                 songs.append(cls(**info))
@@ -153,30 +153,30 @@ class AdviceableSong(MetaSong):
         embed = discord.Embed(
             color=discord.Color.dark_purple(),
             title=self.title,
-            description=f'{self.author} • {self.album}',
+            description=f"{self.author} • {self.album}",
             url=self.url
         )
         embed.set_thumbnail(url=self.thumbnail)
-        embed.add_field(name='Duration', value=self.duration)
-        embed.add_field(name='Year', value=self.year)
+        embed.add_field(name="Duration", value=self.duration)
+        embed.add_field(name="Year", value=self.year)
         self.embed = embed
 
 
 @dataclass
 class PlayableSong(MetaSong):
 
-    lyrics: str = ''
+    lyrics: str = ""
 
     def __post_init__(self) -> None:
         super().__post_init__()
         embed = discord.Embed(
             color=discord.Color.dark_purple(),
             title=self.title,
-            description=f'{self.author} • {self.album}',
+            description=f"{self.author} • {self.album}",
             url=self.url
         )
         embed.set_thumbnail(url=self.thumbnail)
-        embed.add_field(name='Duration', value=self.duration)
+        embed.add_field(name="Duration", value=self.duration)
 
         self.lyrics = genius.lyrics(self)
         lyrics = discord.Embed(

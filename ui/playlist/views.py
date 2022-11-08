@@ -4,10 +4,10 @@ from .modals import *
 from models import Playlist
 
 __all__ = (
-    'PlaylistPaginator',
-    'PlaylistSettings',
-    'PlaylistAdvancedSettings',
-    'SongManager',
+    "PlaylistPaginator",
+    "PlaylistSettings",
+    "PlaylistAdvancedSettings",
+    "SongManager",
 )
 
 class PlaylistPaginator(discord.ui.View):
@@ -27,7 +27,7 @@ class PlaylistPaginator(discord.ui.View):
 
     @index.setter
     def index(self, value: int):
-        assert (0 <= value <= len(self.embeds) - 1), f'Value set for index: {value}'
+        assert (0 <= value <= len(self.embeds) - 1), f"Value set for index: {value}"
 
         self.page = self.embeds[value]
 
@@ -36,31 +36,31 @@ class PlaylistPaginator(discord.ui.View):
 
         self.__index = value
 
-    @discord.ui.button(label='<<')
+    @discord.ui.button(label="<<")
     async def _to_first(self, interaction: discord.Interaction, _):
         self.index = 0
 
         await interaction.response.edit_message(embed=self.page, view=self)
 
-    @discord.ui.button(label='<')
+    @discord.ui.button(label="<")
     async def back(self, interaction: discord.Interaction, _):
         self.index -= 1
 
         await interaction.response.edit_message(embed=self.page, view=self)
 
-    @discord.ui.button(label='>')
+    @discord.ui.button(label=">")
     async def fowrard(self, interaction: discord.Interaction, _):
         self.index += 1
 
         await interaction.response.edit_message(embed=self.page, view=self)
 
-    @discord.ui.button(label='>>')
+    @discord.ui.button(label=">>")
     async def _to_last(self, interaction: discord.Interaction, _):
         self.index = len(self.embeds) - 1
 
         await interaction.response.edit_message(embed=self.page, view=self)
 
-    @discord.ui.button(label='Manage', style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="Manage", style=discord.ButtonStyle.blurple)
     async def manage_playlist(self, interaction: discord.Interaction, _):
         view = PlaylistSettings(self.playlist)
         await interaction.response.edit_message(view=view)
@@ -79,14 +79,14 @@ class PlaylistSettings(discord.ui.View):
         super().__init__()
         self.playlist = playlist
 
-    @discord.ui.button(label='<')
+    @discord.ui.button(label="<")
     async def back(self, *_) -> None:
         self.stop()
 
-    @discord.ui.button(label='Advanced')
+    @discord.ui.button(label="Advanced")
     async def advanced(self, interaction: discord.Interaction, _) -> None:
         if interaction.user != self.playlist.author:
-            await interaction.response.send_message('You cannot complete this action, only the author of the playlist can.', ephemeral=True)
+            await interaction.response.send_message("You cannot complete this action, only the author of the playlist can.", ephemeral=True)
             self.stop()
             return
         view = PlaylistAdvancedSettings(self.playlist)
@@ -95,7 +95,7 @@ class PlaylistSettings(discord.ui.View):
         self.stop()
 
 
-    @discord.ui.button(label='Songs')
+    @discord.ui.button(label="Songs")
     async def songs(self, interaction: discord.Interaction, _) -> None:
         if self.playlist.private:
             while True:
@@ -109,10 +109,10 @@ class PlaylistSettings(discord.ui.View):
         await view.wait()
         self.stop()
 
-    @discord.ui.button(label='Delete', style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Delete", style=discord.ButtonStyle.red)
     async def delete(self, interaction: discord.Interaction, _) -> None:
         if interaction.user != self.playlist.author:
-            await interaction.response.send_message('You cannot complete this action, only the author of the playlist can.', ephemeral=True)
+            await interaction.response.send_message("You cannot complete this action, only the author of the playlist can.", ephemeral=True)
             self.stop()
             return
 
@@ -130,17 +130,17 @@ class PlaylistAdvancedSettings(discord.ui.View):
         self.playlist = playlist
 
         if self.playlist.private:
-            self.children[0].label = 'Unlock'
+            self.children[0].label = "Unlock"
         else:
-            self.children[0].label = 'Lock'
+            self.children[0].label = "Lock"
 
-    @discord.ui.button(label='<')
+    @discord.ui.button(label="<")
     async def back(self, *_) -> None:
         self.stop()
 
     @discord.ui.button() # label will be added in __init__
     async def edit_state(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        if button.label == 'Lock':
+        if button.label == "Lock":
             modal = LockPlaylist(self.playlist)
             await interaction.response.send_modal(modal)
             await modal.wait()
@@ -151,7 +151,7 @@ class PlaylistAdvancedSettings(discord.ui.View):
             await modal.wait()
         self.stop()
 
-    @discord.ui.button(label='Rename')
+    @discord.ui.button(label="Rename")
     async def rename(self, interaction: discord.Interaction, _) -> None:
         modal = RenamePlaylist(self.playlist)
         await interaction.response.send_modal(modal)
@@ -170,17 +170,17 @@ class SongManager(discord.ui.View):
         super().__init__()
         self.playlist = playlist
     
-    @discord.ui.button(label='<')
+    @discord.ui.button(label="<")
     async def back(self, *_) -> None:
         self.stop()
 
-    @discord.ui.button(label='Add')
+    @discord.ui.button(label="Add")
     async def add_song(self, interaction: discord.Interaction, _) -> None:
         modal = AddSong(self.playlist)
         await interaction.response.send_modal(modal)
         await modal.wait()
 
-    @discord.ui.button(label='Remove')
+    @discord.ui.button(label="Remove")
     async def remove_song(self, interaction: discord.Interaction, _) -> None:
         modal = RemoveSong(self.playlist)
         await interaction.response.send_modal(modal)

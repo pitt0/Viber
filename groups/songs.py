@@ -11,7 +11,7 @@ from ui import VAdviceableSong
 
 
 __all__ = (
-    'Songs',
+    "Songs",
 )
 
 
@@ -29,24 +29,24 @@ class SongMenu(discord.ui.View):
             self.show_lyrics.style = discord.ButtonStyle.blurple
 
 
-    @discord.ui.button(emoji='▶️')
+    @discord.ui.button(emoji="▶️")
     async def play_song(self, interaction: discord.Interaction, button: discord.ui.Button):
         button.disabled = True
         await interaction.response.edit_message(view=self)
         
         player = await self.players.load(interaction)
-        await interaction.followup.send('Added to Queue.', embed=self.song.embeds[0])
+        await interaction.followup.send("Added to Queue.", embed=self.song.embeds[0])
         await player.add_song(self.song, requester=interaction.user)
 
 
-    @discord.ui.button(emoji='💟')
+    @discord.ui.button(emoji="💟")
     async def like_song(self, interaction: discord.Interaction, _):
         playlist = LikedSongs.from_database(interaction.user)
         playlist.add_song(self.song)
-        await interaction.response.send_message(f'`{self.song.title} • {self.song.author}` added to `Liked Songs`', ephemeral=True)
+        await interaction.response.send_message(f"`{self.song.title} • {self.song.author}` added to `Liked Songs`", ephemeral=True)
 
 
-    @discord.ui.button(emoji='✒️')
+    @discord.ui.button(emoji="✒️")
     async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.lyrics = not self.lyrics
         if self.lyrics:
@@ -60,7 +60,7 @@ class Songs(slash.Group):
 
     async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
         _embed = discord.Embed(
-            title='Something went wrong',
+            title="Something went wrong",
             description=cause,
             color=discord.Color.dark_red()
         )
@@ -69,11 +69,11 @@ class Songs(slash.Group):
         else:
             await interaction.response.send_message(embed=_embed, ephemeral=ephemeral)
     
-    @slash.command(name='advice', description='Advices a song to someone in this server')
+    @slash.command(name="advice", description="Advices a song to someone in this server")
     async def advice_song(self, interaction: discord.Interaction, song: str, to: discord.Member) -> None:
         await interaction.response.defer()
         advices = Advices.from_database(to)
-        if not song.startswith('http'):
+        if not song.startswith("http"):
             _song = await choice(interaction, Purpose.Advice, song)
         else:
             _song = search(Purpose.Advice, song)
@@ -90,7 +90,7 @@ class Songs(slash.Group):
 
         await interaction.followup.send(message, embed=embed, view=view)
 
-    @slash.command(name='search', description='Searches a song.')
+    @slash.command(name="search", description="Searches a song.")
     async def search_song(self, interaction: discord.Interaction, song: str, choose: bool = True) -> None:
         await interaction.response.defer()
         _song: PlayableSong
@@ -106,7 +106,7 @@ class Songs(slash.Group):
         menu = SongMenu(interaction.guild, _song, False)
         await interaction.followup.send(embed=_song.embeds[0], view=menu)
 
-    @slash.command(name='lyrics', description='Shows the lyrics of a song')
+    @slash.command(name="lyrics", description="Shows the lyrics of a song")
     async def search_lyrics(self, interaction: discord.Interaction, song: str, choose: bool = False) -> None:
         await interaction.response.defer()
         _song: PlayableSong

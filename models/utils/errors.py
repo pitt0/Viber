@@ -6,18 +6,18 @@ class NotFound(SearchingException):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.name = 'Could not find anything :c'
+        self.name = "Could not find anything :c"
 
 class WrongLink(SearchingException):
     """Exception raised when a link led to nothing."""
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.name = 'Link returned no result'
+        self.name = "Link returned no result"
 
 class BadRequest(SearchingException):
     """Exception raised when someone uses a non-supported link."""
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.name = 'Bad Request'
+        self.name = "Bad Request"

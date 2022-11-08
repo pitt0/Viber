@@ -1,5 +1,4 @@
 from typing import Any
-import json
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
@@ -11,7 +10,7 @@ auth_manager = SpotifyOAuth()
 sp = spotipy.Spotify(auth_manager=auth_manager)
 
 __all__ = (
-    'search',
+    "search",
 )
 
 def search(song: str, limit: int = 5) -> dict[str, Any]:
@@ -35,23 +34,23 @@ def show(id: str) -> dict[str, Any]:
     return sp.show(id)
 
 def from_link(link: str) -> dict[str, Any]:
-    parts = link.split('/')
+    parts = link.split("/")
     check = parts[-2]
-    id = parts[-1].split('?si')[0]
+    id = parts[-1].split("?si")[0]
     match check:
-        case 'track':
+        case "track":
             return track(id)
         
-        case 'playlist':
+        case "playlist":
             return playlist(id)
         
-        case 'album':
+        case "album":
             return album(id)
         
-        case 'artist':
+        case "artist":
             return artist(id)
         
-        case 'show':
+        case "show":
             return show(id)
         
         case _:

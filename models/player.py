@@ -16,7 +16,7 @@ class VPlayer(discord.ui.View):
     embeds: list[discord.Embed]
     message: discord.Message
 
-    def __init__(self, player: 'MusicPlayer'):
+    def __init__(self, player: "MusicPlayer"):
         super().__init__(timeout=None)
         self.__player = player
         self.message = None # type: ignore
@@ -31,63 +31,63 @@ class VPlayer(discord.ui.View):
     def song(self) -> PlayableSong:
         return self.__player.queue[0][0]
 
-    @discord.ui.button(emoji='⏪', disabled=True)
+    @discord.ui.button(emoji="⏪", disabled=True)
     async def previous(self, interaction: discord.Interaction, _) -> None:
         self.__player.play_previous = True
         await self.__player.stop(force=False)
-        await interaction.response.send_message(f'Song replayed.', ephemeral=True)
+        await interaction.response.send_message(f"Song replayed.", ephemeral=True)
 
-    @discord.ui.button(emoji='⏸️')
+    @discord.ui.button(emoji="⏸️")
     async def play_pause(self, interaction: discord.Interaction, _) -> None:
         if self.__player.playing:
             await self.__player.pause()
-            await interaction.response.send_message(f'Song paused.', ephemeral=True)
+            await interaction.response.send_message(f"Song paused.", ephemeral=True)
         else:
             await self.__player.resume()
-            await interaction.response.send_message(f'Song resumed.', ephemeral=True)
+            await interaction.response.send_message(f"Song resumed.", ephemeral=True)
 
-    @discord.ui.button(emoji='⏩', disabled=True)
+    @discord.ui.button(emoji="⏩", disabled=True)
     async def next(self, interaction: discord.Interaction, _) -> None:
         await self.__player.stop(force=False)
-        await interaction.response.send_message(f'Song skipped.', ephemeral=True)
+        await interaction.response.send_message(f"Song skipped.", ephemeral=True)
 
-    @discord.ui.button(emoji='💟')
+    @discord.ui.button(emoji="💟")
     async def like(self, interaction: discord.Interaction, _) -> None:
         self.song.like(interaction)
         await interaction.response.send_message(f"Playlist Updated!", ephemeral=True)
 
-    @discord.ui.button(emoji='⏹️', row=1)
+    @discord.ui.button(emoji="⏹️", row=1)
     async def stop(self, interaction: discord.Interaction, _) -> None:
         await self.__player.stop()
-        await interaction.response.send_message(f'Player stopped.', ephemeral=True)
+        await interaction.response.send_message(f"Player stopped.", ephemeral=True)
 
-    @discord.ui.button(emoji='🔀', row=1, disabled=True)
+    @discord.ui.button(emoji="🔀", row=1, disabled=True)
     async def shuffle(self, interaction: discord.Interaction, _) -> None:
         song = self.__player.queue.pop(0)
         random.shuffle(self.__player.queue)
         self.__player.queue.insert(0, song)
-        await interaction.response.send_message(f'Queue shuffled.', ephemeral=True)
+        await interaction.response.send_message(f"Queue shuffled.", ephemeral=True)
 
-    @discord.ui.button(emoji='🔁', row=1)
+    @discord.ui.button(emoji="🔁", row=1)
     async def loop(self, interaction: discord.Interaction, _) -> None:
         await self.__player.set_loop(interaction, self.__player.loop + 1 if self.__player.loop != 2 else 0)
 
-    @discord.ui.button(emoji='✒️', row=1)
+    @discord.ui.button(emoji="✒️", row=1)
     async def lyrics(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if self.embeds[1] is None:
-            await interaction.response.send_message('Could not find any lyrics for this song.', ephemeral=True)
+            await interaction.response.send_message("Could not find any lyrics for this song.", ephemeral=True)
             return
         index: int = 0
-        message = '\u200b'
+        message = "\u200b"
         match button.style:
             case discord.ButtonStyle.blurple:
                 button.style = discord.ButtonStyle.grey
                 index = 0
-                message = 'Switched to player'
+                message = "Switched to player"
             case discord.ButtonStyle.grey:
                 button.style = discord.ButtonStyle.blurple
                 index = 1
-                message = 'Switched to lyrics'
+                message = "Switched to lyrics"
         await self.message.edit(embed=self.embeds[index], view=self)
         await interaction.response.send_message(message, ephemeral=True)
 
@@ -96,19 +96,19 @@ class VPlayer(discord.ui.View):
 class MusicPlayer:
     
     __slots__ = (
-        'guild',
-        'channel',
-        'voice_client',
+        "guild",
+        "channel",
+        "voice_client",
 
-        'loop',
-        'player',
+        "loop",
+        "player",
 
-        'queue',
-        'cache',
-        'play_previous',
+        "queue",
+        "cache",
+        "play_previous",
 
-        '__playing',
-        '__trick_paused',
+        "__playing",
+        "__trick_paused",
 
     )
 
@@ -137,20 +137,20 @@ class MusicPlayer:
 
 
     @classmethod
-    def load(cls, guild: discord.Guild, voice_client: discord.VoiceClient) -> 'MusicPlayer':
+    def load(cls, guild: discord.Guild, voice_client: discord.VoiceClient) -> "MusicPlayer":
         self = cls(guild)
         self.voice_client = voice_client
         return self
     
     @classmethod
-    async def create(cls, guild: discord.Guild, voice_channel: discord.VoiceChannel) -> 'MusicPlayer':
+    async def create(cls, guild: discord.Guild, voice_channel: discord.VoiceChannel) -> "MusicPlayer":
         self = cls(guild)
         for channel in guild.channels:
-            if channel.name == '▶viber':
+            if channel.name == "▶viber":
                 self.channel = channel # type: ignore
                 break
         else:
-            self.channel = await guild.create_text_channel('▶viber')
+            self.channel = await guild.create_text_channel("▶viber")
         
         self.voice_client = await voice_channel.connect()
         return self
@@ -172,11 +172,11 @@ class MusicPlayer:
         song, _, requester = self.queue[0]
         _e = discord.Embed(
             title=song.title,
-            description=f'{song.album} • {song.author}',
+            description=f"{song.album} • {song.author}",
             color=discord.Color.blue()
         )
         _e.set_thumbnail(url=song.thumbnail)
-        _e.set_footer(text=f'Queued by {requester.display_name}', icon_url=requester.display_avatar)
+        _e.set_footer(text=f"Queued by {requester.display_name}", icon_url=requester.display_avatar)
         _e.add_field(name="Duration", value=song.duration)
         return _e
 
@@ -243,13 +243,13 @@ class MusicPlayer:
         self.loop = num
         match num:
             case 0:
-                self.player.loop.emoji = '🔁'
+                self.player.loop.emoji = "🔁"
                 self.player.loop.style = discord.ButtonStyle.grey
             case 1:
-                self.player.loop.emoji = '🔁'
+                self.player.loop.emoji = "🔁"
                 self.player.loop.style = discord.ButtonStyle.blurple
             case 2:
-                self.player.loop.emoji = '🔂'
+                self.player.loop.emoji = "🔂"
                 self.player.loop.style = discord.ButtonStyle.blurple
 
         await interaction.response.edit_message(view=self.player)
@@ -268,7 +268,7 @@ class MusicPlayer:
         assert self.voice_client is not None
 
         if after.channel is None:
-            print('helo')
+            print("helo")
             return await self.__reset()
 
         if self.playing:
@@ -317,12 +317,12 @@ class MusicPlayer:
 
     async def pause(self,) -> None:
         self.voice_client.pause()
-        self.player.play_pause.emoji = '▶️'
+        self.player.play_pause.emoji = "▶️"
         await self.__update_player()
 
     async def resume(self,) -> None:
         self.voice_client.resume()
-        self.player.play_pause.emoji = '⏸️'
+        self.player.play_pause.emoji = "⏸️"
         await self.__update_player()
     
     async def stop(self, force: bool = True) -> None:
