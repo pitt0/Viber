@@ -2,9 +2,9 @@ from discord import app_commands as slash
 
 import discord
 
-from models import Advices, LikedSongs, choose as choice, search, Purpose
+from models import Advices, LikedSongs, choose as choice, search
 from models import Players
-from models import PlayableSong
+from models import PlayableSong, AdviceableSong
 from models.utils.errors import SearchingException
 
 from ui import VAdviceableSong
@@ -74,9 +74,9 @@ class Songs(slash.Group):
         await interaction.response.defer()
         advices = Advices.from_database(to)
         if not song.startswith("http"):
-            _song = await choice(interaction, Purpose.Advice, song)
+            _song = await choice(interaction, AdviceableSong, song)
         else:
-            _song = search(Purpose.Advice, song)
+            _song = search(AdviceableSong, song)
 
         embed = _song.embed # type: ignore
         view = VAdviceableSong(_song) # type: ignore
@@ -96,11 +96,11 @@ class Songs(slash.Group):
         _song: PlayableSong
         try:
             if choose:
-                _song = await choice(interaction, Purpose.Play, song) # type: ignore
+                _song = await choice(interaction, PlayableSong, song)
             else:
-                _song = search(Purpose.Play, song) # type: ignore
+                _song = search(PlayableSong, song)
         except SearchingException as e:
-            await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
+            await self.send_error_message(interaction, e, ephemeral=True)
             return
 
         menu = SongMenu(interaction.guild, _song, False)
@@ -112,11 +112,11 @@ class Songs(slash.Group):
         _song: PlayableSong
         try:
             if choose:
-                _song = await choice(interaction, Purpose.Lyrics, song) # type: ignore
+                _song = await choice(interaction, PlayableSong, song)
             else:
-                _song = search(Purpose.Play, song) # type: ignore
+                _song = search(PlayableSong, song)
         except SearchingException as e:
-            await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
+            await self.send_error_message(interaction, e, ephemeral=True)
             return
 
         menu = SongMenu(interaction.guild, _song, True)

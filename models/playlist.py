@@ -1,7 +1,8 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
 from string import printable
-from typing import Any, Optional, Self
+from typing import Any, Optional
+from typing_extensions import Self
 
 import discord
 

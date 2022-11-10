@@ -1,9 +1,10 @@
 from discord.ui import TextInput
+from typing_extensions import Self
 
 import asyncio
 import discord
 
-from models import Playlist, choose, Purpose
+from models import Playlist, PlaylistSong, choose
 from models.utils.errors import SearchingException
 
 __all__ = (
@@ -18,7 +19,7 @@ __all__ = (
 
 class DeletePlaylist(discord.ui.Modal):
 
-    children: list[TextInput["DeletePlaylist"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Insert Name to Complete")
@@ -41,7 +42,7 @@ class DeletePlaylist(discord.ui.Modal):
 
 class LockPlaylist(discord.ui.Modal):
 
-    children: list[TextInput["LockPlaylist"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Fill the fields to lock the playlist")
@@ -68,7 +69,7 @@ class LockPlaylist(discord.ui.Modal):
 
 class UnlockPlaylist(discord.ui.Modal):
 
-    children: list[TextInput["UnlockPlaylist"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Fill the fields to lock the playlist")
@@ -97,7 +98,7 @@ class UnlockPlaylist(discord.ui.Modal):
 
 class RenamePlaylist(discord.ui.Modal):
 
-    children: list[TextInput["RenamePlaylist"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Rename the playlist")
@@ -137,7 +138,7 @@ class RenamePlaylist(discord.ui.Modal):
 
 class AddSong(discord.ui.Modal):
 
-    children: list[TextInput["AddSong"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Add a song")
@@ -153,11 +154,11 @@ class AddSong(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"Wait for the bot to search for `{self.children[0].value}`", ephemeral=True)
         try:
-            song = await choose(interaction, Purpose.Playlist, self.children[0].value)
+            song = await choose(interaction, PlaylistSong, self.children[0].value)
         except SearchingException as e:
             await interaction.response.send_message(
                 embed=discord.Embed(
-                    title="There"s been an error",
+                    title="There's been an error",
                     description=e,
                     color=discord.Color.dark_red(),
                 ),
@@ -165,10 +166,10 @@ class AddSong(discord.ui.Modal):
             )
             return
         if song is None:
-            await interaction.response.send_message("Couldn"t find anything.", ephemeral=True)
+            await interaction.response.send_message("Couldn't find anything.", ephemeral=True)
             return
 
-        self.playlist.add_song(song) # type: ignore
+        self.playlist.add_song(song)
         if interaction.response.is_done():
             await interaction.followup.send(f"`{song.title} by {song.author}` has been added to {self.playlist.name}!")
         else:
@@ -176,7 +177,7 @@ class AddSong(discord.ui.Modal):
 
 class RemoveSong(discord.ui.Modal):
 
-    children: list[TextInput["RemoveSong"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Remove a song")
@@ -202,7 +203,7 @@ class RemoveSong(discord.ui.Modal):
 
 class AskPassword(discord.ui.Modal):
 
-    children: list[TextInput["AskPassword"]]
+    children: list[TextInput[Self]]
 
     def __init__(self, playlist: Playlist):
         super().__init__(title="Insert Password")

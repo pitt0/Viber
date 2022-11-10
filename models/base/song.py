@@ -22,6 +22,9 @@ __all__ = ("Song",)
 @dataclass
 class Song:
 
+    if TYPE_CHECKING:
+        embeds: list[discord.Embed]
+
     id: str
     title: str
     author: str
@@ -99,7 +102,7 @@ class Song:
         return cls(**data)
 
     @classmethod
-    def from_cache(cls, reference: str) -> "Song":
+    def from_cache(cls, reference: str) -> Self:
         with SongCache() as cache:
             song_id = cache[reference]
         with Connector() as cur:
@@ -124,7 +127,7 @@ class Song:
             return cls(**info)
 
     @classmethod
-    def from_spotify(cls, link: str):
+    def from_spotify(cls, link: str) -> Self | None:
         with Connector() as cur:
             cur.execute(f"SELECT * FROM Songs WHERE Spotify=?;", (link,))
             song = cur.fetchone()
@@ -139,7 +142,7 @@ class Song:
         return cls(**info)
 
     @classmethod
-    def from_youtube(cls, link: str):
+    def from_youtube(cls, link: str) -> Self:
         with Connector() as cur:
             cur.execute(f"SELECT * FROM Songs WHERE Youtube=?;", (link,))
             song = cur.fetchone()

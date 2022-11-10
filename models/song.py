@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from enum import Enum, auto
-from typing_extensions import Self
+from typing_extensions import Self, Type
 
 import discord
 
@@ -18,6 +17,8 @@ from .utils import youtube as yt
 from .base.info import *
 from .base.song import Song as MetaSong
 
+from .data import S
+
 from ui.songs import VChoosableSong
 
 
@@ -25,53 +26,38 @@ __all__ = (
     "AdviceableSong",
     "ChoosableSong",
     "PlayableSong",
+    "PlaylistSong",
 
     "search",
-    "choose",
-    "Purpose"
+    "choose"
 )
 
 
-class Purpose(Enum):
-    Advice = auto()
-    Play = auto()
-    Playlist = auto()
-    Lyrics = auto()
-
-
-def fetch_song(reference: str, purpose: Purpose) -> MetaSong:
-    match purpose:
-        case Purpose.Play | Purpose.Lyrics:
-            song_type = PlayableSong
-        case Purpose.Playlist:
-            song_type = PlaylistSong
-        case Purpose.Advice:
-            song_type = AdviceableSong
-        case _:
-            raise ValueError()
-         
+def fetch_song(reference: str, purpose: Type[S]) -> S:
     if not reference.startswith("http"):
-        return song_type.from_reference(reference)
+        return purpose.from_reference(reference)
 
     elif "open.spotify.com" in reference:
-        song = song_type.from_spotify(reference)
+        song = purpose.from_spotify(reference)
         if song is None:
             raise WrongLink(f"(This link)[{reference}] returned no result.")
         
         return song
     
     elif "youtu.be" in reference or "youtube.com" in reference:
-        return song_type.from_youtube(reference)
+        return purpose.from_youtube(reference)
     
     raise BadRequest(f"(This type of links)[{reference}] are not supported.")
-    
 
-def search(purpose: Purpose, reference: str) -> MetaSong:
+
+
+def search(purpose: Type[S], reference: str) -> S:
     song = fetch_song(reference, purpose)
     song.cache(reference)
     return song
 
-async def choose(interaction: discord.Interaction, purpose: Purpose, reference: str) -> MetaSong:
+
+async def choose(interaction: discord.Interaction, purpose: Type[S], reference: str) -> S:
     songs = ChoosableSong.from_reference(reference)
     if len(songs) == 0:
         raise NotFound(f"Searching `{reference}` returned no result.")
@@ -86,21 +72,11 @@ async def choose(interaction: discord.Interaction, purpose: Purpose, reference: 
         await view.wait()
         song = view.current_song
 
-    match purpose:
-        case Purpose.Advice:
-            song = AdviceableSong.from_choice(song)
-
-        case Purpose.Play | Purpose.Lyrics:
-            song = PlayableSong.from_choice(song)
-
-        case Purpose.Playlist:
-            song = PlaylistSong.from_choice(song)
-
-        case _:
-            raise ValueError()
+    song = purpose.from_choice(song)
 
     song.cache(reference)
     return song
+
 
 @dataclass
 class ChoosableSong:

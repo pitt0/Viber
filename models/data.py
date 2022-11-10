@@ -1,9 +1,10 @@
-from typing import TypeAlias
+from typing import TypeAlias, TypeVar
 
 import datetime
 import discord
 
 from .player import MusicPlayer
+from .base.song import Song as MetaSong
 
 
 __all__ = (
@@ -11,15 +12,16 @@ __all__ = (
     "Time"
 )
 
-# TypeAliases
+# TypeVars
 GUILD_ID: TypeAlias = int
+S = TypeVar("S", bound=MetaSong)
 
 
 # Classes
 class Time(datetime.datetime):
     
     def __str__(self):
-        return f"{self:%H:%M:%S}"
+        return f"{self:%T}"
 
     @classmethod
     def today(cls):
