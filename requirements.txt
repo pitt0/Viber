@@ -1,11 +1,13 @@
 # discord
 discord.py
 
+# data
+spotipy
+yt-dlp
+
 # music
 lyricsgenius
 PyNaCl
-spotipy
-yt-dlp
 
 # system
 python-dotenv
