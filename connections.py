@@ -1,7 +1,7 @@
 from typing import Any
 import sqlite3 as sql
 import json
-from models import Time
+from models import Time, USER_ID
 
 
 __all__ = (
@@ -26,6 +26,27 @@ class Connector:
         self.connection.commit()
         print(f"[{Time.now()}] Closing Database")
         self.connection.close()
+
+
+class Devs:
+
+    """Opens the Developers (devs.json) file and iterates through it."""
+
+    file: str = "database/devs.json"
+
+    cache: list[USER_ID]
+
+    def __enter__(self) -> list[USER_ID]:
+        print(f"[{Time.now()}] Opening {self.file}")
+        with open(self.file) as f:
+            self.cache = json.load(f)
+            return self.cache
+
+    def __exit__(self, *args):
+        print(f"[{Time.now()}] Committing to {self.file}...")
+        with open(self.file, "w") as f:
+            json.dump(self.cache, f, indent=4)
+        print(f"[{Time.now()}] Closing {self.file}")
 
 
 class CacheFile:

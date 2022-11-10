@@ -9,11 +9,16 @@ from .base.song import Song as MetaSong
 
 __all__ = (
     "Players",
-    "Time"
+    "Time",
+
+    "GUILD_ID",
+    "USER_ID",
+    "S"
 )
 
 # TypeVars
 GUILD_ID: TypeAlias = int
+USER_ID: TypeAlias = int
 S = TypeVar("S", bound=MetaSong)
 
 
