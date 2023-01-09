@@ -1,9 +1,9 @@
-from typing import Any, overload
+from typing import overload
 
 import sqlite3 as sql
 import json
 
-from resources import Time
+from .time import Time
 from .typings import SongCollection
 
 

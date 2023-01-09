@@ -60,6 +60,7 @@ class SongMenu(discord.ui.View):
 class Songs(slash.Group):
 
     def __init__(self, client: discord.Client):
+        super().__init__()
         self.client = client
 
     # async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
