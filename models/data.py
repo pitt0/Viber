@@ -1,39 +1,13 @@
-from typing import TypeAlias, TypeVar
-
-import datetime
 import discord
 
 from .player import MusicPlayer
-from .base.song import Song as MetaSong
+from resources import GUILD_ID
 
 
-__all__ = (
-    "Players",
-    "Time",
-
-    "GUILD_ID",
-    "USER_ID",
-    "S"
-)
-
-# TypeVars
-GUILD_ID: TypeAlias = int
-USER_ID: TypeAlias = int
-S = TypeVar("S", bound=MetaSong)
+__all__ = ("Players",)
 
 
 # Classes
-class Time(datetime.datetime):
-    
-    def __str__(self):
-        return f"{self:%T}"
-
-    @classmethod
-    def today(cls):
-        now = cls.now()
-        return f"{now:%d/%m/%y}"
-
-
 class Players(dict[GUILD_ID, MusicPlayer]):
     
     async def load(self, interaction: discord.Interaction, default: discord.VoiceChannel | None = None) -> MusicPlayer:

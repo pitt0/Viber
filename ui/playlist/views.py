@@ -156,10 +156,10 @@ class PlaylistAdvancedSettings(discord.ui.View):
         modal = RenamePlaylist(self.playlist)
         await interaction.response.send_modal(modal)
         await modal.wait()
-        message = await interaction.original_message()
-        embed = message.embeds[0]
+        message = interaction.message
+        embed = message.embeds[0] # type: ignore
         embed.title = modal.result
-        await interaction.followup.edit_message(message.id, embed=embed)
+        await interaction.followup.edit_message(message.id, embed=embed) # type: ignore
         self.stop()
 
 class SongManager(discord.ui.View):

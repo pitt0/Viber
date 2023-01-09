@@ -2,18 +2,15 @@ import asyncio
 import discord
 import random
 
-from .playlist import LikedSongs
-from .song import PlayableSong
+from .playlists import LikedSongs
+from .songs import LyricsSong
 from .utils import FFMPEG_OPTIONS
-
-User = discord.Member | discord.User
-
+from resources import USER
 
 
 class VPlayer(discord.ui.View):
 
     children: list[discord.ui.Button]
-    embeds: list[discord.Embed]
     message: discord.Message
 
     def __init__(self, player: "MusicPlayer"):
@@ -24,11 +21,8 @@ class VPlayer(discord.ui.View):
     def destroy(self) -> None:
         self.message = None # type: ignore
 
-    def set_embeds(self, embeds: list[discord.Embed]) -> None:
-        self.embeds = embeds
-
     @property
-    def song(self) -> PlayableSong:
+    def song(self) -> LyricsSong:
         return self.__player.queue[0][0]
 
     @discord.ui.button(emoji="⏪", disabled=True)
@@ -53,7 +47,8 @@ class VPlayer(discord.ui.View):
 
     @discord.ui.button(emoji="💟")
     async def like(self, interaction: discord.Interaction, _) -> None:
-        self.song.like(interaction)
+        ls = LikedSongs(interaction.user)
+        ls.add_song(self.song)
         await interaction.response.send_message(f"Playlist Updated!", ephemeral=True)
 
     @discord.ui.button(emoji="⏹️", row=1)
@@ -74,21 +69,15 @@ class VPlayer(discord.ui.View):
 
     @discord.ui.button(emoji="✒️", row=1)
     async def lyrics(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        if self.embeds[1] is None:
-            await interaction.response.send_message("Could not find any lyrics for this song.", ephemeral=True)
-            return
-        index: int = 0
         message = "\u200b"
         match button.style:
             case discord.ButtonStyle.blurple:
                 button.style = discord.ButtonStyle.grey
-                index = 0
                 message = "Switched to player"
             case discord.ButtonStyle.grey:
                 button.style = discord.ButtonStyle.blurple
-                index = 1
                 message = "Switched to lyrics"
-        await self.message.edit(embed=self.embeds[index], view=self)
+        await self.message.edit(embed=self.song.switch(), view=self)
         await interaction.response.send_message(message, ephemeral=True)
 
         
@@ -115,8 +104,8 @@ class MusicPlayer:
     guild: discord.Guild
     channel: discord.TextChannel
     voice_client: discord.VoiceClient
-    queue: list[tuple[PlayableSong, discord.FFmpegOpusAudio, User]]
-    cache: list[tuple[PlayableSong, discord.FFmpegOpusAudio, User]]
+    queue: list[tuple[LyricsSong, discord.FFmpegOpusAudio, USER]]
+    cache: list[tuple[LyricsSong, discord.FFmpegOpusAudio, USER]]
     play_previous: bool
 
     loop: int
@@ -170,14 +159,9 @@ class MusicPlayer:
     @property
     def embed(self) -> discord.Embed:
         song, _, requester = self.queue[0]
-        _e = discord.Embed(
-            title=song.title,
-            description=f"{song.album} • {song.author}",
-            color=discord.Color.blue()
-        )
-        _e.set_thumbnail(url=song.thumbnail)
+        _e = song.embed
+        _e.color = discord.Colour.blue()
         _e.set_footer(text=f"Queued by {requester.display_name}", icon_url=requester.display_avatar)
-        _e.add_field(name="Duration", value=song.duration)
         return _e
 
     @property
@@ -285,7 +269,7 @@ class MusicPlayer:
                     await self.resume()
                     print("Resumed.")
 
-    async def add_song(self, song: PlayableSong, requester: User) -> None:
+    async def add_song(self, song: LyricsSong, requester: USER) -> None:
         source = await self.get_source(song.source)
         self.queue.append((song, source, requester))
         if self.sleeping:
@@ -304,10 +288,6 @@ class MusicPlayer:
             self.voice_client.play(source, after=self.__next)
 
             await self.__update_player()
-            self.player.set_embeds([
-                self.embed,
-                song.embeds[1]
-                ])
             if not self.player.message:
                 self.player.message = await self.channel.send(embed=self.embed, view=self.player)
             else:

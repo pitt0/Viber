@@ -17,17 +17,17 @@ with open("database/options.json") as f:
 yt = yt_dlp.YoutubeDL(OPTS)
 
 def from_link(link: str) -> dict[str, Any]:
-    return yt.extract_info(link, download=False)
+    return yt.extract_info(link, download=False) # type: ignore
 
 def get_ids(query: str) -> list[str]:
-    query = query.replace(" ", "+").encode("utf-8")
+    query = str(query.replace(" ", "+").encode("utf-8"))
     html = urllib.request.urlopen(f"https://www.youtube.com/results?search_query={query}")
     return re.findall(r"watch\?v=(\S{11})", html.read().decode())
 
 def get_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
-def get_urls(video_ids: list[str]) -> Generator[str]:
+def get_urls(video_ids: list[str]) -> Generator[str, None, None]:
     return (get_url(video_id) for video_id in video_ids)
 
 

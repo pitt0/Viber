@@ -3,7 +3,10 @@ from discord.ext import commands
 
 import discord
 
-from models import search, choose as choice, PlayableSong
+from resources import Devs
+
+from models import SongsChoice
+from models import LyricsSong
 from models import Players
 from models.utils.errors import SearchingException
 
@@ -11,38 +14,62 @@ from models.utils.errors import SearchingException
 
 class Player(slash.Group):
 
-    def __init__(self, client: discord.Client):
+    def __init__(self, client: discord.Client) -> None:
         super().__init__()
         self.client = client
         self.players = Players()
-
-    async def send_me(self, text: str) -> None:
-        me = await self.client.fetch_user(648939655579828226)
-        await me.send(f"```{text}```")
 
     def can_connect(self, interaction: discord.Interaction) -> bool:
         assert not isinstance(interaction.user, discord.User)
         return interaction.user.voice is not None and isinstance(interaction.user.voice.channel, discord.VoiceChannel)
 
-    async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
-        _embed = discord.Embed(
-            title="Something went wrong",
-            description=cause,
-            color=discord.Color.dark_red()
-        )
-        if interaction.response.is_done():
-            await interaction.followup.send(embed=_embed, ephemeral=ephemeral)
-        else:
-            await interaction.response.send_message(embed=_embed, ephemeral=ephemeral)
+    # async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
+    #     _embed = discord.Embed(
+    #         title="Something went wrong",
+    #         description=cause,
+    #         color=discord.Color.dark_red()
+    #     )
+    #     if interaction.response.is_done():
+    #         await interaction.followup.send(embed=_embed, ephemeral=ephemeral)
+    #     else:
+    #         await interaction.response.send_message(embed=_embed, ephemeral=ephemeral)
 
     @commands.Cog.listener()
-    async def on_error(self, interaction: discord.Interaction, error: slash.CommandInvokeError):
-        await self.send_me(f"There's been an error on command {interaction.command.name}.\nError: {error.__class__.__name__}\n           {error}.") # type: ignore
-        _error_embed = discord.Embed(
-            title="**Error**",
-            description="There's been an error"
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        # TODO: Check if this works
+        # if not try with @error() instead
+
+        dev_message = ""
+        usr_message = ""
+
+        match interaction.command:
+            case None:
+                dev_message = "There's been an unknown error."
+                usr_message = "There's been an unknown error, please try again or contact the developer."
+            case slash.Command():
+                dev_message = f"There's been an error on command _{interaction.command.parent} {interaction.command.name}_"
+                usr_message = f"There's been an error trying to run command _{interaction.command.parent} {interaction.command.name}_"
+            case slash.ContextMenu():
+                dev_message = f"There's been an error on app command _{interaction.command.name}_"
+                usr_message = f"There's been an error trying to run app command _{interaction.command.name}_"
+
+        dev_message += (
+            f"\n*Error: _{error.__class__.__name__}_*" +
+            "\n```" + 
+            f"\n{error}" +
+            "\n```"
         )
-        _error_embed.add_field(name=error.__class__.__name__, value=error)
+
+        with Devs() as devs:
+            for dev_id in devs:
+                dev = await self.client.fetch_user(dev_id)
+                await dev.send(dev_message)
+
+        _error_embed = discord.Embed(
+            title="**:x: Error**",
+            description=usr_message
+        ).set_footer(text="Contact the dev at pitto#5732")
+
         if interaction.response.is_done():
             await interaction.followup.send(embed=_error_embed)
         else:
@@ -50,7 +77,7 @@ class Player(slash.Group):
 
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
         guild: discord.Guild = member.guild
         
         if guild.id not in self.players: 
@@ -68,7 +95,7 @@ class Player(slash.Group):
         await interaction.response.defer()
         if channel is None:
             if not self.can_connect(interaction):
-                await self.send_error_message(interaction, cause="Could not connect to a voice channel, try to specify one or connect to one.", ephemeral=True)
+                # await self.send_error_message(interaction, cause="Could not connect to a voice channel, try to specify one or connect to one.", ephemeral=True)
                 return
             _channel = interaction.user.voice.channel # type: ignore[valid-type]
         else:
@@ -89,15 +116,16 @@ class Player(slash.Group):
 
         try:
             if choose:
-                song = await choice(interaction, PlayableSong, reference)
+                choice = SongsChoice.search(reference, LyricsSong)
+                song = await choice.choose(interaction)
             else:
-                song = search(PlayableSong, reference)
-        except SearchingException as e:
-            await self.send_error_message(interaction, e, ephemeral=True) # type: ignore
+                song = LyricsSong.search(reference)
+        except SearchingException:
+            # await self.send_error_message(interaction, e, ephemeral=True)
             return
         
-        await interaction.followup.send("Added to queue.", embed=song.embeds[0])
-        await player.add_song(song, interaction.user)
+        await interaction.followup.send("Added to queue.", embed=song.embed)
+        await player.add_song(song, interaction.user) # type: ignore
 
     @slash.command(name="pause", description="Pauses the song the bot is playing.")
     @slash.check(lambda interaction: isinstance(interaction.channel, discord.TextChannel))
@@ -153,7 +181,7 @@ class Player(slash.Group):
             color=discord.Color.orange()
         )
         for song, _, _ in self.players[interaction.guild.id].queue:
-            embed.add_field(name=song.title, value=song.author, inline=False) # type: ignore
+            embed.add_field(**song.field) 
         
         await interaction.response.send_message(embed=embed)
 

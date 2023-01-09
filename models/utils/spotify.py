@@ -11,27 +11,28 @@ sp = spotipy.Spotify(auth_manager=auth_manager)
 
 __all__ = (
     "search",
+    "from_link"
 )
 
-def search(song: str, limit: int = 5) -> dict[str, Any]:
-    return sp.search(song, limit=limit)
+def search(song: str, limit: int = 5) -> list[dict[str, Any]]:
+    return (sp.search(song, limit=limit) or {"tracks": {"items": []}})["tracks"]["items"] 
 
 
 
 def track(id: str) -> dict[str, Any]:
-    return sp.track(id)
+    return sp.track(id) or {}
 
 def playlist(id: str) -> dict[str, Any]:
-    return sp.playlist(id)
+    return sp.playlist(id) or {}
 
 def album(id: str) -> dict[str, Any]:
-    return sp.album(id)
+    return sp.album(id) or {}
 
 def artist(id: str) -> dict[str, Any]:
-    return sp.artist(id)
+    return sp.artist(id) or {}
 
 def show(id: str) -> dict[str, Any]:
-    return sp.show(id)
+    return sp.show(id) or {}
 
 def from_link(link: str) -> dict[str, Any]:
     parts = link.split("/")

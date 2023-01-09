@@ -5,7 +5,8 @@ import discord
 
 import ui
 import models.utils.youtube as yt
-from models import Playlist, CachedPlaylist, Advices, LikedSongs
+from models import Playlist, Advices, LikedSongs
+from models import UserPlaylist, CachedPlaylist
 
 # init cache
 cached_playlists = CachedPlaylist.load()
@@ -13,7 +14,7 @@ cached_playlists = CachedPlaylist.load()
 
 async def autocomplete(interaction: discord.Interaction, current: str) -> list[slash.Choice[str]]:
     obj = []
-    for playlist in cached_playlists:
+    for playlist in CachedPlaylist.load():
         if playlist.showable(interaction) and playlist.is_input(current):
             obj.append(slash.Choice(name=playlist.name, value=playlist.name))
     return obj
@@ -26,7 +27,7 @@ class MNewPlaylist(discord.ui.Modal, title="Create a Playlist"):
     password = TextInput(label="Playlist Password Leave Empty to Keep it Free", placeholder="Password", required=False, min_length=8)
     url = TextInput(label="External Url", placeholder="https://", required=False, min_length=29)
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         if self.name is None and self.url is None:
             modal = self
             await interaction.response.send_modal(modal)
@@ -100,27 +101,17 @@ class Playlists(slash.Group):
     async def show_all_playlists(self, interaction: discord.Interaction, person: discord.User | None = None) -> None:
         await interaction.response.defer()
 
-        if person is None:
-            person = interaction.user # type: ignore
+        author = person or interaction.user
+        embeds = UserPlaylist.embeds(author)
 
-        assert person is not None
-
-        playlists = await Playlist.from_person(person)
-        embed = discord.Embed(
-            title=f"{person.display_name}'s Playlists",
-            description="Page 1"
-        )
-        for playlist in playlists:
-            embed.add_field(name=playlist.title, value=playlist.date, inline=True)
-
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embeds[0], view=ui.MenuView(embeds))
 
     @slash.command(name="advices", description="Shows your adviced songs.")
-    async def show_advices(self, interaction: discord.Interaction):
+    async def show_advices(self, interaction: discord.Interaction) -> None:
         advices = Advices.from_database(interaction.user)
         await interaction.response.send_message(embed=advices.embeds[0], view=ui.MenuView(advices.embeds))
 
     @slash.command(name="liked", description="Shows your liked songs.")
-    async def show_liked_songs(self, interaction: discord.Interaction):
+    async def show_liked_songs(self, interaction: discord.Interaction) -> None:
         liked_songs = LikedSongs.from_database(interaction.user)
         await interaction.response.send_message(embed=liked_songs.embeds[0], view=ui.MenuView(liked_songs.embeds))

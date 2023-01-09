@@ -4,7 +4,8 @@ from typing_extensions import Self
 import asyncio
 import discord
 
-from models import Playlist, PlaylistSong, choose
+from models import Playlist, Song
+from models import SongsChoice
 from models.utils.errors import SearchingException
 
 __all__ = (
@@ -62,7 +63,7 @@ class LockPlaylist(discord.ui.Modal):
         await self.__responded
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        self.playlist.set_password(self.children[0].value) # type: ignore
+        self.playlist.set_password(self.children[0].value)
         self.playlist.lock()
         await interaction.response.send_message(f"Action completed! {self.playlist.name} is now private.")
         self.stop()
@@ -132,7 +133,7 @@ class RenamePlaylist(discord.ui.Modal):
             return
 
         self.result = self.children[0].value
-        self.playlist.rename(self.children[0].value) # type: ignore
+        self.playlist.rename(self.children[0].value)
         await interaction.response.send_message(f"Action completed! You renamed the playlist to {self.playlist.name}.")
         self.stop()
 
@@ -154,7 +155,8 @@ class AddSong(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"Wait for the bot to search for `{self.children[0].value}`", ephemeral=True)
         try:
-            song = await choose(interaction, PlaylistSong, self.children[0].value)
+            choice = SongsChoice.search(self.children[0].value, Song)
+            song = await choice.choose(interaction)
         except SearchingException as e:
             await interaction.response.send_message(
                 embed=discord.Embed(
@@ -171,9 +173,9 @@ class AddSong(discord.ui.Modal):
 
         self.playlist.add_song(song)
         if interaction.response.is_done():
-            await interaction.followup.send(f"`{song.title} by {song.author}` has been added to {self.playlist.name}!")
+            await interaction.followup.send(f"`{song}` has been added to {self.playlist.name}!")
         else:
-            await interaction.response.send_message(f"`{song.title} by {song.author}` has been added to {self.playlist.name}!")
+            await interaction.response.send_message(f"`{song}` has been added to {self.playlist.name}!")
 
 class RemoveSong(discord.ui.Modal):
 
@@ -186,20 +188,20 @@ class RemoveSong(discord.ui.Modal):
         self.add_item(
             TextInput(
                 label="Song index",
-                placeholder=f"1 ~ {len(playlist.songs)}"
+                placeholder=f"1 ~ {len(playlist)}"
             )
         )
     
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
         try:
-            index = int(self.children[0].value) # type: ignore
+            index = int(self.children[0].value)
         except ValueError:
             await interaction.response.send_message(f"You must insert a number.", ephemeral=True)
             return
-        song = self.playlist.songs[index-1]
+        song = self.playlist[index-1]
         self.playlist.remove_song(song)
-        await interaction.response.send_message(f"`{song.title} by {song.author}` has been removed from {self.playlist.name}.")
+        await interaction.response.send_message(f"`{song}` has been removed from {self.playlist.name}.")
 
 class AskPassword(discord.ui.Modal):
 

@@ -1,13 +1,14 @@
 from discord import app_commands as slash
+from discord.ext import commands
 
 import discord
 
-from models import Advices, LikedSongs, choose as choice, search
-from models import Players
-from models import PlayableSong, AdviceableSong
-from models.utils.errors import SearchingException
+from resources import Devs
 
-from ui import VAdviceableSong
+from models import Advices, LikedSongs, SongsChoice
+from models import Players
+from models import Song, LyricsSong
+from models.utils.errors import SearchingException
 
 
 __all__ = (
@@ -58,66 +59,107 @@ class SongMenu(discord.ui.View):
 
 class Songs(slash.Group):
 
-    async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
-        _embed = discord.Embed(
-            title="Something went wrong",
-            description=cause,
-            color=discord.Color.dark_red()
+    def __init__(self, client: discord.Client):
+        self.client = client
+
+    # async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
+    #     _embed = discord.Embed(
+    #         title="Something went wrong",
+    #         description=cause,
+    #         color=discord.Color.dark_red()
+    #     )
+    #     if interaction.response.is_done():
+    #         await interaction.followup.send(embed=_embed, ephemeral=ephemeral)
+    #     else:
+    #         await interaction.response.send_message(embed=_embed, ephemeral=ephemeral)
+
+    @commands.Cog.listener()
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        # TODO: Check if this works
+        # if not try with @error() instead
+
+        dev_message = ""
+        usr_message = ""
+
+        match interaction.command:
+            case None:
+                dev_message = "There's been an unknown error."
+                usr_message = "There's been an unknown error, please try again or contact the developer."
+            case slash.Command():
+                dev_message = f"There's been an error on command _{interaction.command.parent} {interaction.command.name}_"
+                usr_message = f"There's been an error trying to run command _{interaction.command.parent} {interaction.command.name}_"
+            case slash.ContextMenu():
+                dev_message = f"There's been an error on app command _{interaction.command.name}_"
+                usr_message = f"There's been an error trying to run app command _{interaction.command.name}_"
+
+        dev_message += (
+            f"\n*Error: _{error.__class__.__name__}_*" +
+            "\n```" + 
+            f"\n{error}" +
+            "\n```"
         )
+
+        with Devs() as devs:
+            for dev_id in devs:
+                dev = await self.client.fetch_user(dev_id)
+                await dev.send(dev_message)
+
+        _error_embed = discord.Embed(
+            title="**:x: Error**",
+            description=usr_message
+        ).set_footer(text="Contact the dev at pitto#5732")
+
         if interaction.response.is_done():
-            await interaction.followup.send(embed=_embed, ephemeral=ephemeral)
+            await interaction.followup.send(embed=_error_embed)
         else:
-            await interaction.response.send_message(embed=_embed, ephemeral=ephemeral)
+            await interaction.response.send_message(embed=_error_embed)
     
     @slash.command(name="advice", description="Advices a song to someone in this server")
     async def advice_song(self, interaction: discord.Interaction, song: str, to: discord.Member) -> None:
         await interaction.response.defer()
         advices = Advices.from_database(to)
         if not song.startswith("http"):
-            _song = await choice(interaction, AdviceableSong, song)
+            choice = SongsChoice.search(song, Song)
+            _song = await choice.choose(interaction)
         else:
-            _song = search(AdviceableSong, song)
+            _song = Song.search(song)
 
-        embed = _song.embed # type: ignore
-        view = VAdviceableSong(_song) # type: ignore
+        embed = _song.embed
 
         if _song not in advices.songs:
-            advices.add_song(_song) # type: ignore
+            advices.add_song(_song)
             message = f"Adviced to {to.mention}"
             
         else:
             message = f"This song is already in {to.display_name}'s advice list"
 
-        await interaction.followup.send(message, embed=embed, view=view)
+        await interaction.followup.send(message, embed=embed)
 
     @slash.command(name="search", description="Searches a song.")
     async def search_song(self, interaction: discord.Interaction, song: str, choose: bool = True) -> None:
         await interaction.response.defer()
-        _song: PlayableSong
-        try:
-            if choose:
-                _song = await choice(interaction, PlayableSong, song)
-            else:
-                _song = search(PlayableSong, song)
-        except SearchingException as e:
-            await self.send_error_message(interaction, e, ephemeral=True)
-            return
+
+        if choose:
+            choice = SongsChoice.search(song, LyricsSong)
+            _song = await choice.choose(interaction)
+        else:
+            _song = LyricsSong.search(song)
 
         menu = SongMenu(interaction.guild, _song, False)
-        await interaction.followup.send(embed=_song.embeds[0], view=menu)
+        await interaction.followup.send(embed=_song.embed, view=menu)
 
     @slash.command(name="lyrics", description="Shows the lyrics of a song")
     async def search_lyrics(self, interaction: discord.Interaction, song: str, choose: bool = False) -> None:
         await interaction.response.defer()
-        _song: PlayableSong
         try:
             if choose:
-                _song = await choice(interaction, PlayableSong, song)
+                choice = SongsChoice.search(song, LyricsSong)
+                _song = await choice.choose(interaction)
             else:
-                _song = search(PlayableSong, song)
+                _song = LyricsSong.search(song)
         except SearchingException as e:
-            await self.send_error_message(interaction, e, ephemeral=True)
+            # await self.send_error_message(interaction, e, ephemeral=True)
             return
 
         menu = SongMenu(interaction.guild, _song, True)
-        await interaction.response.send_message(embed=_song.embeds[1], view=menu)
+        await interaction.response.send_message(embed=_song.switch(), view=menu) # type: ignore

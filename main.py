@@ -4,7 +4,7 @@ import discord
 # system
 from dotenv import load_dotenv
 import os
-from models import Time
+from resources import Time
 
 # slash groups
 from groups.playlists import Playlists
@@ -17,7 +17,7 @@ tree = app_commands.CommandTree(client)
 
 def load_commands():
     tree.add_command(Playlists())
-    tree.add_command(Songs())
+    tree.add_command(Songs(client))
     tree.add_command(Player(client))
 
 @client.event
