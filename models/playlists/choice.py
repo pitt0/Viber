@@ -18,6 +18,7 @@ class SongsChoice(List[Song]):
     reference: str
 
     def __init__(self, reference: str, purpose: Type[Song | LyricsSong]):
+        self.reference = reference
         tracks = sp.search(reference)
         if (len(tracks) == 0):
             tracks = yt.search_infos(reference)
@@ -41,7 +42,10 @@ class SongsChoice(List[Song]):
 
     async def choose(self, interaction: discord.Interaction) -> Song | LyricsSong:
         view = VSongsChoice(self)
-        await interaction.response.send_message(embed=self.first.embed, view=view)
+        if interaction.response.is_done():
+            await interaction.followup.send(embed=self.first.embed, view=view)
+        else:
+            await interaction.response.send_message(embed=self.first.embed, view=view)
         await view.wait()
         view.song.cache(self.reference)
         return view.song
@@ -51,7 +55,7 @@ class SongsChoice(List[Song]):
 class VSongsChoice(MenuView):
 
     def __init__(self, songs: SongsChoice):
-        embeds = [song.embed for song in songs]
+        embeds = songs.select(lambda song: song.embed)
         super().__init__(embeds)
         self.songs = songs
         self.current = songs.first.embed
