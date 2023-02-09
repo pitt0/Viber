@@ -1,4 +1,5 @@
-from typing import Type, TypeVar
+from list_ext import List
+from typing import Type
 
 import discord
 
@@ -12,7 +13,7 @@ from ui import MenuView
 __all__ = ("SongsChoice",)
 
 
-class SongsChoice(list[Song]):
+class SongsChoice(List[Song]):
 
     reference: str
 
@@ -23,14 +24,6 @@ class SongsChoice(list[Song]):
             
         for track in tracks:
             self.append(purpose.as_choice(track))
-
-    @property
-    def empty(self) -> bool:
-        return len(self) == 0
-
-    @property
-    def first(self) -> Song:
-        return self[0]
 
     @property
     def countable(self) -> bool:
@@ -58,9 +51,7 @@ class SongsChoice(list[Song]):
 class VSongsChoice(MenuView):
 
     def __init__(self, songs: SongsChoice):
-        embeds = []
-        for song in songs:
-            embeds.append(song.embed)
+        embeds = [song.embed for song in songs]
         super().__init__(embeds)
         self.songs = songs
         self.current = songs.first.embed

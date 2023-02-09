@@ -1,6 +1,6 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
-from typing_extensions import Self
+from typing import Self
 
 import discord
 
@@ -53,12 +53,9 @@ class GuildPlaylist(EmbedPlaylist):
 
     @classmethod
     def load(cls, guild: discord.Guild) -> list[Self]:
-        embeds = []
         with Connector() as cur:
             cur.execute("SELECT Title, Date, Author FROM Playlists WHERE Guild=? AND Locked=0;", (guild.id,))
-            for playlist in cur.fetchall():
-                embeds.append(cls(*playlist))
-        return embeds
+            return [cls(*playlist) for playlist in cur.fetchall()]
 
     @classmethod
     def embed(cls, guild: discord.Guild) -> list[discord.Embed]:
@@ -70,12 +67,9 @@ class UserPlaylist(EmbedPlaylist):
     
     @classmethod
     def load(cls, user: USER) -> list[Self]:
-        embeds = []
         with Connector() as cur:
             cur.execute("SELECT Title, Date FROM Playlists WHERE Author=?;", (user.id,))
-            for playlist in cur.fetchall():
-                embeds.append(cls(*playlist))
-        return embeds
+            return [cls(*playlist) for playlist in cur.fetchall()]
 
     @classmethod
     def embeds(cls, user: USER) -> list[discord.Embed]:

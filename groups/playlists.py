@@ -13,10 +13,11 @@ cached_playlists = CachedPlaylist.load()
 
 
 async def autocomplete(interaction: discord.Interaction, current: str) -> list[slash.Choice[str]]:
-    obj = []
-    for playlist in CachedPlaylist.load():
-        if playlist.showable(interaction) and playlist.is_input(current):
-            obj.append(slash.Choice(name=playlist.name, value=playlist.name))
+    obj = [
+        slash.Choice(name=playlist.name, value=playlist.name)
+        for playlist in cached_playlists
+        if (playlist.showable(interaction) and playlist.is_input(current))
+    ]
     return obj
 
 
@@ -83,7 +84,7 @@ class Playlists(slash.Group):
         await interaction.response.defer()
 
         if not Playlist.existing(interaction, name):
-            await interaction.response.send_message(f"`{name}` does not exist.", ephemeral=True)
+            await interaction.followup.send(f"`{name}` does not exist.", ephemeral=True)
             return
 
         playlist = await Playlist.from_database(interaction, name) 
@@ -109,6 +110,7 @@ class Playlists(slash.Group):
     @slash.command(name="advices", description="Shows your adviced songs.")
     async def show_advices(self, interaction: discord.Interaction) -> None:
         advices = Advices.from_database(interaction.user)
+        # TODO: Add a settings `⚙️` button before or after the MenuButtons to remove songs
         await interaction.response.send_message(embed=advices.embeds[0], view=ui.MenuView(advices.embeds))
 
     @slash.command(name="liked", description="Shows your liked songs.")

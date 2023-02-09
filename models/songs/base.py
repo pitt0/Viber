@@ -1,6 +1,5 @@
 from sqlite3 import Cursor
-from typing import Any
-from typing_extensions import Self
+from typing import Any, Self
 
 import discord
 
@@ -83,8 +82,7 @@ class Song:
 
     @staticmethod
     def cached(reference: str):
-        with SongCache() as cache:
-            return reference in cache
+        return SongCache.load(reference)
 
     def cache(self, reference: str):
         with SongCache() as cache:

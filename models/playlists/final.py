@@ -1,6 +1,6 @@
+from list_ext import List
 from string import printable
-from typing import Any
-from typing_extensions import Self
+from typing import Any, Self
 
 import discord
 import resources.connections as conn
@@ -35,10 +35,11 @@ class Playlist(BasePlaylist):
         private: bool,
         password: str,
         author: USER,
-        guild: discord.Guild | None
+        guild: discord.Guild | None,
+        *songs
     ):
 
-        super().__init__(name)
+        super().__init__(name, songs)
 
         self.id = id
         self.date = date
@@ -83,7 +84,7 @@ class Playlist(BasePlaylist):
             VALUES (?, ?, ?, ?, ?, ?, ?);""", 
             (self.id, self.name, self.date, self.private, self.password, self.author.id, self.guild.id))
         with self.cache() as cache:
-            cache[str(self.id)]["songs"] = [song.data.id for song in self]
+            cache[str(self.id)]["songs"] = self.select(lambda song: song.data.id)
 
     def delete(self) -> None:
         with conn.Connector() as cur:
@@ -120,13 +121,12 @@ class Playlist(BasePlaylist):
             cur.execute("SELECT * FROM Playlists WHERE Title=? AND (Guild=? OR Author=?);", (reference, interaction.guild.id, interaction.user.id)) # type: ignore
             playlist = cur.fetchone()
 
-        self = cls(*playlist)
-        self.author = await interaction.client.fetch_user(playlist[4])
-        self.guild = await interaction.client.fetch_guild(playlist[5])
-
         with cls.cache() as cache:
-            for song_id in cache[str(self.id)]:
-                self.append(Song.from_id(song_id))
+            ids = List(cache[str(playlist[0])]["songs"])
+            self = cls(*playlist, ids.select(lambda _id: Song.from_id(_id)))
+            
+        self.author = await interaction.client.fetch_user(int(playlist[5]))
+        self.guild = await interaction.client.fetch_guild(int(playlist[6]))
 
         return self
 

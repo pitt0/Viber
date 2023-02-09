@@ -47,8 +47,11 @@ class Player(slash.Group):
                 dev_message = "There's been an unknown error."
                 usr_message = "There's been an unknown error, please try again or contact the developer."
             case slash.Command():
-                dev_message = f"There's been an error on command _{interaction.command.parent} {interaction.command.name}_"
-                usr_message = f"There's been an error trying to run command _{interaction.command.parent} {interaction.command.name}_"
+                parent_name = ""
+                if interaction.command.parent is not None:
+                    parent_name = f"{interaction.command.parent.name} "
+                dev_message = f"There's been an error on command _{parent_name}{interaction.command.name}_"
+                usr_message = f"There's been an error trying to run command _{parent_name}{interaction.command.name}_"
             case slash.ContextMenu():
                 dev_message = f"There's been an error on app command _{interaction.command.name}_"
                 usr_message = f"There's been an error trying to run app command _{interaction.command.name}_"

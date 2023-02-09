@@ -1,6 +1,6 @@
 from abc import abstractclassmethod
-from typing import Type
-from typing_extensions import Self
+from list_ext import List
+from typing import Self, Type
 
 import discord
 
@@ -12,7 +12,7 @@ __all__ = ("Playlist",)
 
 
 
-class Playlist(list[Song]):
+class Playlist(List[Song]):
     
     __slots__ = (
         "name",
@@ -23,8 +23,8 @@ class Playlist(list[Song]):
     id: int
     cache: Type[CacheFile]
     
-    def __init__(self, name: str):
-        super().__init__()
+    def __init__(self, name: str, *songs):
+        super().__init__(songs)
         self.name = name
 
     def __eq__(self, __o: object) -> bool:
@@ -48,11 +48,6 @@ class Playlist(list[Song]):
         )
         _e.set_footer(text=f"Page {page}")
         return _e
-
-
-    @property
-    def empty(self) -> bool:
-        return len(self) == 0
 
     @property
     def embeds(self) -> list[discord.Embed]:

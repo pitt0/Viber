@@ -10,4 +10,5 @@ lyricsgenius
 PyNaCl
 
 # system
+list_ext
 python-dotenv

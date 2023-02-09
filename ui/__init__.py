@@ -1,2 +1,4 @@
 from .generic import *
-from .playlist import *
+
+from .modals import *
+from .views import *

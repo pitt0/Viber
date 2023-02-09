@@ -1,3 +1,5 @@
+from list_ext import List
+
 import asyncio
 import discord
 import random
@@ -104,8 +106,8 @@ class MusicPlayer:
     guild: discord.Guild
     channel: discord.TextChannel
     voice_client: discord.VoiceClient
-    queue: list[tuple[LyricsSong, discord.FFmpegOpusAudio, USER]]
-    cache: list[tuple[LyricsSong, discord.FFmpegOpusAudio, USER]]
+    queue: List[tuple[LyricsSong, discord.FFmpegOpusAudio, USER]]
+    cache: List[tuple[LyricsSong, discord.FFmpegOpusAudio, USER]]
     play_previous: bool
 
     loop: int
@@ -115,8 +117,8 @@ class MusicPlayer:
 
     def __init__(self, guild: discord.Guild):
         self.guild = guild
-        self.queue = []
-        self.cache = []
+        self.queue = List()
+        self.cache = List()
 
         self.player = None # type: ignore
 
@@ -158,7 +160,7 @@ class MusicPlayer:
 
     @property
     def embed(self) -> discord.Embed:
-        song, _, requester = self.queue[0]
+        song, _, requester = self.queue.first
         _e = song.embed
         _e.color = discord.Colour.blue()
         _e.set_footer(text=f"Queued by {requester.display_name}", icon_url=requester.display_avatar)
@@ -173,9 +175,9 @@ class MusicPlayer:
         return await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
 
     async def __update_player(self, view: bool = False):
-        self.player.previous.disabled = not len(self.cache) > 0
-        self.player.next.disabled = not (len(self.queue) > 1 or self.loop == 1)
-        self.player.shuffle.disabled = not len(self.queue) > 2
+        self.player.previous.disabled = self.cache.empty
+        self.player.next.disabled = not (self.queue.length > 1 or self.loop == 1)
+        self.player.shuffle.disabled = not self.queue.length > 2
         if view:
             await self.player.message.edit(view=self.player)
         
@@ -189,7 +191,7 @@ class MusicPlayer:
         self.__playing = loop.create_future()
 
     def __next(self, _) -> None:
-        if len(self.queue) == 0:
+        if self.queue.empty:
             self.__stop()
             return
 
@@ -200,19 +202,19 @@ class MusicPlayer:
             self.queue.insert(0, (song, source, requester))
             self.play_previous = False
         else:
-            if len(self.cache) == 0 or self.cache[-1][0] != song:
+            if self.cache.empty or self.cache.last[0] != song:
                 self.cache.append((song, source, requester))
 
         match self.loop:
             case 1:
-                if len(self.queue) == 0:
-                    self.queue = self.cache.copy()
+                if self.queue.empty:
+                    self.queue = List().new(self.cache.copy())
             case 2:
                 self.queue.insert(0, (song, source, requester))
         
         self.__stop()
 
-        if len(self.queue) == 0:
+        if self.queue.empty:
             return
     
     def __stop(self) -> None:
@@ -281,9 +283,9 @@ class MusicPlayer:
         if self.player is None:
             self.player = VPlayer(self)
 
-        while len(self.queue) > 0:
+        while not self.queue.empty:
 
-            song, source, _ = self.queue[0]
+            _, source, _ = self.queue.first
             self.__prepare() # Creates the task
             self.voice_client.play(source, after=self.__next)
 
@@ -308,6 +310,6 @@ class MusicPlayer:
     async def stop(self, force: bool = True) -> None:
         self.voice_client.stop()
         if force:
-            self.queue = []
+            self.queue = List()
             self.player.destroy()
             self.__stop()

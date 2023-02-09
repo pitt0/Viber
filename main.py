@@ -4,7 +4,6 @@ import discord
 # system
 from dotenv import load_dotenv
 import os
-from resources import Time
 
 # slash groups
 from groups.playlists import Playlists
@@ -24,8 +23,6 @@ def load_commands():
 async def on_ready():
     load_commands()
     await tree.sync()
-
-    print(f"[{Time.now()}] Viber is online")
     
     activity = discord.Activity(name="Music", type=discord.ActivityType.listening)
     await client.change_presence(activity=activity)
@@ -34,4 +31,4 @@ async def on_ready():
 
 if __name__ == "__main__":
     load_dotenv()
-    client.run(os.getenv("TOKEN")) # type: ignore
+    client.run(os.getenv("TOKEN", ""))

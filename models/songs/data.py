@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from sqlite3 import Cursor
-from typing import Any
-from typing_extensions import Self
+from typing import Any, Self
 
 from resources import Connector
 from resources import Time

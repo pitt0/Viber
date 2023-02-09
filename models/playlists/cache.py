@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing_extensions import Self
+from typing import Self
 
 import discord
 
@@ -20,8 +20,7 @@ class CachedPlaylist:
         cache = []
         with Connector() as cur:
             cur.execute("SELECT Title, Author, Keyword FROM Playlists;")
-            for playlist in cur.fetchall():
-                cache.append(cls(*playlist))
+            cache = [cls(*playlist) for playlist in cur.fetchall()]
         return cache
 
     def __guild_scope(self, interaction: discord.Interaction) -> bool:

@@ -82,21 +82,25 @@ class Songs(slash.Group):
         dev_message = ""
         usr_message = ""
 
-        match interaction.command:
+        match interaction.command:            
             case None:
                 dev_message = "There's been an unknown error."
                 usr_message = "There's been an unknown error, please try again or contact the developer."
             case slash.Command():
-                dev_message = f"There's been an error on command _{interaction.command.parent} {interaction.command.name}_"
-                usr_message = f"There's been an error trying to run command _{interaction.command.parent} {interaction.command.name}_"
+                parent_name = ""
+                if interaction.command.parent is not None:
+                    parent_name = f"{interaction.command.parent.name} "
+                dev_message = f"There's been an error on command _{parent_name}{interaction.command.name}_"
+                usr_message = f"There's been an error trying to run command _{parent_name}{interaction.command.name}_"
             case slash.ContextMenu():
                 dev_message = f"There's been an error on app command _{interaction.command.name}_"
                 usr_message = f"There's been an error trying to run app command _{interaction.command.name}_"
 
         dev_message += (
+            "\n" +
             f"\n*Error: _{error.__class__.__name__}_*" +
             "\n```" + 
-            f"\n{error}" +
+            f"\n{error.__context__}" +
             "\n```"
         )
 
@@ -127,7 +131,7 @@ class Songs(slash.Group):
 
         embed = _song.embed
 
-        if _song not in advices.songs:
+        if _song not in advices:
             advices.add_song(_song)
             message = f"Adviced to {to.mention}"
             
