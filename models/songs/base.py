@@ -12,6 +12,14 @@ from resources import Connector, SongCache
 
 class Song:
 
+    __slots__ = (
+        "data",
+        "embed",
+        "source",
+        "url",
+        "lyrics"
+    )
+
     data: SongData
 
     embed: discord.Embed

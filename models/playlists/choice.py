@@ -17,21 +17,16 @@ class SongsChoice(List[Song]):
 
     reference: str
 
-    def __init__(self, reference: str, purpose: Type[Song | LyricsSong]):
+    def __init__(self, reference: str, purpose: Type[Song]):
         self.reference = reference
         tracks = sp.search(reference)
         if (len(tracks) == 0):
             tracks = yt.search_infos(reference)
             
-        for track in tracks:
-            self.append(purpose.as_choice(track))
-
-    @property
-    def countable(self) -> bool:
-        return len(self) > 1
+        super().__init__(purpose.as_choice(track) for track in tracks)
 
     @classmethod
-    def search(cls, reference: str, purpose: Type[Song | LyricsSong]):
+    def search(cls, reference: str, purpose: Type[Song]):
         self = cls(reference, purpose)
         if self.empty:
             # It's ok for the moment, if error tracking does not work:
