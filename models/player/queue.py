@@ -31,6 +31,17 @@ class Queue(List[SONG_ENTRY]):
         return self.loop > 0
 
     @property
+    def embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="Queue",
+            color=discord.Color.orange()
+        )
+        for song, _, _ in self.left:
+            embed.add_field(**song.field)
+        
+        return embed
+
+    @property
     def song_loop(self) -> bool:
         return self.loop == 2
 
