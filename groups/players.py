@@ -7,7 +7,7 @@ from resources import Devs
 
 from models import SongsChoice
 from models import LyricsSong
-from models import Players
+from models import Players, MusicPlayer
 from models.utils.errors import SearchingException
 
 
@@ -22,6 +22,9 @@ class Player(slash.Group):
     def can_connect(self, interaction: discord.Interaction) -> bool:
         assert not isinstance(interaction.user, discord.User)
         return interaction.user.voice is not None and isinstance(interaction.user.voice.channel, discord.VoiceChannel)
+
+    def player(self, interaction: discord.Interaction) -> MusicPlayer:
+        return self.players[interaction.guild.id] # type: ignore
 
     # async def send_error_message(self, interaction: discord.Interaction, cause: str, ephemeral: bool) -> None:
     #     _embed = discord.Embed(
@@ -139,7 +142,7 @@ class Player(slash.Group):
             await interaction.response.send_message("There is no active player in this server.", ephemeral=True)
             return
 
-        player = self.players[interaction.guild.id]
+        player = self.player(interaction)
         await player.pause()
         await interaction.response.send_message("Player paused.")
 
@@ -152,7 +155,7 @@ class Player(slash.Group):
             await interaction.response.send_message("There is no active player in this server.", ephemeral=True)
             return
 
-        player = self.players[interaction.guild.id]
+        player = self.player(interaction)
         await player.stop()
         await interaction.response.send_message("Player stopped.")
 
@@ -165,7 +168,7 @@ class Player(slash.Group):
             await interaction.response.send_message("I'm not currently connected to any voice channel.", ephemeral=True)
             return
 
-        player = self.players[interaction.guild.id]
+        player = self.player(interaction)
         channel = player.voice_client.channel
         await player.disconnect()
         await interaction.response.send_message(f"Disconnected from {channel.mention}")
@@ -175,29 +178,25 @@ class Player(slash.Group):
     async def queue(self, interaction: discord.Interaction):
         assert interaction.guild is not None
        
-        if interaction.guild.id not in self.players or len(self.players[interaction.guild.id].queue) == 0:
+        player = self.player(interaction)
+
+        if interaction.guild.id not in self.players or player.queue.empty:
             await interaction.response.send_message("I'm not currenly streaming any music.", ephemeral=True)
             return 
         
-        embed = discord.Embed(
-            title="Queue",
-            color=discord.Color.orange()
-        )
-        for song, _, _ in self.players[interaction.guild.id].queue:
-            embed.add_field(**song.field) 
-        
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=player.queue.embed)
 
     @slash.command(name="loop", description="Loops the queue.")
     @slash.check(lambda interaction: interaction.guild is not None)
     async def loop_queue(self, interaction: discord.Interaction):
         assert interaction.guild is not None
 
-        if interaction.guild.id not in self.players or len(self.players[interaction.guild.id].queue) == 0:
+        player = self.player(interaction)
+
+        if interaction.guild.id not in self.players or player.queue.empty:
             await interaction.response.send_message("I'm not currently streaming any music.", ephemeral=True)
             return
 
-        player = self.players[interaction.guild.id]
         await player.set_loop(interaction, 1)
         await interaction.followup.send("Queue looped.")
 
@@ -206,10 +205,10 @@ class Player(slash.Group):
     async def loop_song(self, interaction: discord.Interaction):
         assert interaction.guild is not None
 
-        if interaction.guild.id not in self.players or len(self.players[interaction.guild.id].queue) == 0:
+        player = self.player(interaction)
+        if interaction.guild.id not in self.players or player.queue.empty:
             await interaction.response.send_message("I'm not currently streaming any music.", ephemeral=True)
             return
 
-        player = self.players[interaction.guild.id]
         await player.set_loop(interaction, 2)
         await interaction.followup.send("Song looped.")
