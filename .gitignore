@@ -1,11 +1,9 @@
-*/__pycache__
+__pycache__/
 /samples
 /cache
 /database
 
 /.vscode
-
-__pycache__
 
 .env
 .cache
