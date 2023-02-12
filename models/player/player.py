@@ -8,24 +8,9 @@ from models.songs import LyricsSong
 from models.utils import FFMPEG_OPTIONS
 from resources import USER
 
-        
+
 
 class MusicPlayer:
-    
-    __slots__ = (
-        "guild",
-        "channel",
-        "voice_client",
-
-        "previous",
-        "player",
-
-        "queue",
-
-        "__playing",
-        "__trick_paused",
-
-    )
 
     guild: discord.Guild
     channel: discord.TextChannel
@@ -91,11 +76,12 @@ class MusicPlayer:
     async def get_source(self, url: str) -> discord.FFmpegOpusAudio:
         return await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
 
-    async def __update_player(self, view: bool = False) -> None:
+    async def __update_player(self, update: bool = False) -> None:
         self.player.previous.disabled = not self.queue.can_previous()
         self.player.next.disabled = not self.queue.can_next()
         self.player.shuffle.disabled = not self.queue.can_shuffle()
-        if view:
+
+        if update:
             await self.player.message.edit(view=self.player)
 
     async def __reset(self) -> None:
@@ -138,11 +124,9 @@ class MusicPlayer:
         
         match num:
             case 0:
-                self.queue.loop = False
                 self.player.loop.emoji = "🔁"
                 self.player.loop.style = discord.ButtonStyle.grey
             case 1:
-                self.queue.loop = True
                 self.player.loop.emoji = "🔁"
                 self.player.loop.style = discord.ButtonStyle.blurple
             case 2:
