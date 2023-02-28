@@ -2,11 +2,12 @@
 discord.py
 
 # data
+lyricsgenius
 spotipy
+ytmusicapi
 yt-dlp
 
 # music
-lyricsgenius
 PyNaCl
 
 # system
