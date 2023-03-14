@@ -3,7 +3,7 @@ from typing import overload
 import sqlite3 as sql
 import json
 
-from .typings import SongCollection
+from .typings import Collection
 
 
 __all__ = (
@@ -33,8 +33,6 @@ class Connector:
 
 class Devs:
 
-    """Opens the Developers (devs.json) file and iterates through it."""
-
     file: str = "database/devs.json"
 
     cache: list[int]
@@ -56,9 +54,9 @@ class CacheFile:
     folder: str = "database/cache/"
     file: str
 
-    cache: dict[PLAYLIST_ID, SongCollection]
+    cache: dict[PLAYLIST_ID, Collection]
 
-    def __enter__(self) -> dict[PLAYLIST_ID, SongCollection]:
+    def __enter__(self) -> dict[PLAYLIST_ID, Collection]:
         self.cache = {}
         with open(self.folder + self.file) as f:
             self.cache = json.load(f)
