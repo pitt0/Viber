@@ -81,3 +81,31 @@ class AlbumResult(TypedDict):
 
 
 Result = VideoResult | SongResult | ArtistResult | CommunityPlaylistResult | AlbumResult
+
+
+
+class VideoDetails(TypedDict):
+    videoId: str
+    title: str
+    lengthSeconds: str
+    channelId: str
+    isOwnerViewing: bool
+    isCrawlable: bool
+    thumbnail: dict
+    allowRatings: bool
+    viewCount: str
+    author: str
+    isLowLatencyLiveStream: bool
+    isPrivate: bool
+    isUnpluggedCorpus: bool
+    latencyClass: str
+    musicVideoType: str
+    isLiveContent: bool
+
+class SongData(TypedDict):
+    playabilityStatus: dict
+    streamingData: dict
+    playbackTracking: dict
+    videoDetails: VideoDetails
+    microformat: dict
+

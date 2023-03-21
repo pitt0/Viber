@@ -50,7 +50,7 @@ class TrackData(TypedDict):
     preview_url: str
     track_number: int
     type: Literal['track']
-    url: str
+    uri: str
 
 class TrackEntries(TypedDict):
     href: str
