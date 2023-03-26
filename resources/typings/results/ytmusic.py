@@ -83,6 +83,19 @@ class AlbumResult(TypedDict):
 Result = VideoResult | SongResult | ArtistResult | CommunityPlaylistResult | AlbumResult
 
 
+class AlbumDetails(TypedDict):
+    title: str
+    type: Literal['Album']
+    thumbnails: list[Thumbnail]
+    description: str
+    artists: list[Artist]
+    year: str
+    trackCount: int
+    duration: str
+    audioPlaylistId: str
+    tracks: list
+    other_versions: list
+    duration_seconds: int
 
 class VideoDetails(TypedDict):
     videoId: str
