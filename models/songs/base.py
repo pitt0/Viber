@@ -1,166 +1,142 @@
-from sqlite3 import Cursor
-from typing import Any, Self
+from functools import cached_property
+from typing import Any, Self, Sequence
+from typing import TypeVar
 
 import discord
 
-from .data import SongData
-from models.utils import spotify as sp
-from models.utils import youtube as yt
-from models.utils import WrongLink
-from resources import Connector, SongCache
+import models.utils.genius as gl
+import models.utils.youtube as yt
+
+from resources import Connection
 
 
-class Song:
+__all__ = (
+    "Album",
+    "Artist",
+    "Track",
 
-    __slots__ = (
-        "data",
-        "embed",
-        "source",
-        "url",
-        "lyrics"
-    )
-
-    data: SongData
-
-    embed: discord.Embed
-
-    source: str
-    url: str
+    "S"
+)
 
 
-    def __init__(self, data: SongData, upload: bool = True):
-        self.data = data
-
-        self.embed = discord.Embed(
-            title=data.title,
-            description=f"{data.author} • {data.album}",
-            color=discord.Colour.dark_purple()
-        ).set_thumbnail(url=data.thumbnail)
-        self.embed.add_field(name="Duration", value=data.duration, inline=True)
-        self.embed.add_field(name="Year", value=data.year, inline=True)
+S = TypeVar("S", bound="Track")
 
 
-        self.source = data.source
-        self.url = data.spotify or data.youtube
+class Artist:
 
-        if upload:
-            with Connector() as cur:
-                if not self.exists(cur):
-                    self.upload(cur)
-                elif self.updateable(cur):
-                    self.update(cur)
+    def __init__(self, id: Any, name: str, url: str):
+        self.id = id
+        self.name = name
+        self.url = url
 
-    
-    @property
-    def field(self):
-        return {"name": self.data.title, "value": f"{self.data.author} • {self.data.album}", "inline": True}
-    
-    
-    def __eq__(self, __o: object) -> bool:
-        if isinstance(__o, SongData):
-            return self.data == __o
-        elif isinstance(__o, tuple):
-            return all(data == __o[i] for i, data in enumerate(self.data))
-        return isinstance(__o, self.__class__) and __o.data == self.data
+    @cached_property
+    def href(self) -> str:
+        return f"({self.name})[{self.url}]" if self.url else self.name
 
-    def __ne__(self, __o: object) -> bool:
-        return not self.__eq__(__o)
+    @classmethod
+    def create(cls, data: Any) -> Self:
+        raise NotImplementedError
+
+
+
+class Album:
+
+    def __init__(self, id: Any, name: str, authors: Sequence[Artist], thumbnail: str, release_date: str, url: str):
+        self.id = id
+        self.name = name
+        self.authors = authors
+        self.thumbnail = thumbnail
+        self.release_date = release_date
+        self.url = url
+
+    async def dump(self) -> None:
+        raise NotImplementedError
+
+    @classmethod
+    def create(cls, data: Any) -> Self:
+        raise NotImplementedError
+
+
+
+class Track:
+
+    def __init__(self, id: Any, title: str, authors: Sequence[Artist], album: Album, duration: str, url: str):
+        self.id = id
+        self.title = title
+        self.author = authors[0]
+        self.artists = authors
+        self.album = album
+        self.duration = duration
+        self.url = url
 
     def __str__(self) -> str:
-        return f"{self.data.title} by {self.data.author}"
+        return f"{self.title} by {self.author}"
 
+    def __repr__(self) -> str:
+        return f"{self.title}#{self.id}"
     
-    def exists(self, cur: Cursor) -> bool:
-        return self.data.in_database(cur)
+    @cached_property
+    def release_date(self) -> str:
+        return self.album.release_date
 
-    def upload(self, cur: Cursor) -> None:
-        try:
-            self.data.upload(cur)
-        except Exception as e:
-            print(e)
+    @cached_property
+    def as_field(self) -> dict[str, Any]:
+        return {"name": self.title, "value": self._embed_artists, "inline": True}
 
-    def updateable(self, cur: Cursor) -> bool:
-        return self.data.updateable(cur)
+    @cached_property
+    def embed(self) -> discord.Embed:
+        return discord.Embed(
+            title=self.title,
+            description=self._embed_artists,
+            color=discord.Colour.dark_purple()
+        )
 
-    def update(self, cur: Cursor) -> None:
-        try:
-            self.data.update(cur)
-        except Exception as e:
-            print(e)
+    @cached_property
+    def lyrics(self) -> discord.Embed:
+        song = gl.search(str(self))['hits'][0]['result']
+        return discord.Embed(
+            title=self.title,
+            description=gl.lyrics(song['id']),
+            color=discord.Colour.dark_purple()
+        )
 
-    @staticmethod
-    def cached(reference: str):
-        return SongCache.load(reference)
+    @cached_property
+    def source(self) -> str:
+        print(f'Fetching source url of {self}') # NOTE: Log
+        song = yt.search(f"{self.author.name} {self.title}", 'songs')[0]
+        return yt.source(f"https://www.youtube.com/watch?v={song['videoId']}")
 
-    def cache(self, reference: str):
-        with SongCache() as cache:
-            cache[reference] = self.data.id
-
+    @cached_property
+    def _embed_artists(self) -> str:
+        return ", ".join(artist.href for artist in self.artists)
     
-    @classmethod
-    def search(cls, reference: str):
-        if "open.spotify.com" in reference:
-            self = cls.from_spotify(reference)
-            if self is None:
-                raise WrongLink(f"(This link)[{reference}] returned no result.")
-        
-        elif "youtu.be" in reference or "youtube.com" in reference:
-            self = cls.from_youtube(reference)
-        
-        else:
-            self = cls.from_reference(reference)
-
-        self.cache(reference)
-        return self
-
-    
-    @classmethod
-    def from_id(cls, id: str) -> Self:
-        return cls(SongData.from_id(id))
-    
-    @classmethod
-    def from_reference(cls, reference: str) -> Self:
-        # Check from cache
-        with SongCache() as cache:
-            if reference in cache:
-                return cls.from_id(cache[reference])
-        
-        # Check from somewhere else
-        data = sp.search(reference, limit=1)
-        if len(data) > 0:
-            return cls(SongData.from_spotify(data[0]))
-        else:
-            data = yt.search_info(reference)
-            return cls(SongData.from_youtube(data))
+    async def dump(self) -> None:
+        raise NotImplementedError
 
     @classmethod
-    def from_spotify(cls, link: str) -> Self | None:
-        with Connector() as cur:
-            cur.execute(f"SELECT * FROM Songs WHERE Spotify=?;", (link,))
-            song = cur.fetchone()
-            if song is not None:
-                return cls(SongData(*song))
-
-        if "track" not in link:
-            return None
-
-        track = sp.track(link.split("/")[-1].split("?")[0])
-        return cls(SongData.from_spotify(track))
+    def load(cls, id: Any) -> Self:
+        """Gets song data stored in the database."""
+        raise NotImplementedError
 
     @classmethod
-    def from_youtube(cls, link: str) -> Self:
-        with Connector() as cur:
-            cur.execute(f"SELECT * FROM Songs WHERE Youtube=?;", (link,))
-            song = cur.fetchone()
-            if song is not None:
-                return cls(SongData(*song))
-
-        track = yt.from_link(link)
-        return cls(SongData.from_youtube(track))
+    def create(cls, data: Any) -> Self:
+        """Creates a `Track` instance from a specific api data."""
+        raise NotImplementedError
 
     @classmethod
-    def as_choice(cls, s_data: dict[str, Any] | None = None, y_data: dict[str, Any] | None = None) -> Self:
-        if s_data is None:
-            return cls(SongData.from_youtube(y_data), False) # type: ignore
-        else:
-            return cls(SongData.from_spotify(s_data), False)
+    def get(cls, url: str) -> Any:
+        """Retrieves data starting from `url` string."""
+        raise NotImplementedError
+
+    @classmethod
+    def search(cls, query: str, limit: int) -> Any:
+        """Looks any api for data of the `query`, and returns `limit` number of song data found."""
+        raise NotImplementedError
+
+    @classmethod
+    def find(cls, query) -> Self:
+        """Creates a `Track` instance using `search` and then `create`"""
+        return cls.create(cls.search(query, 1))
+
+    def exists(self) -> bool:
+        raise NotImplementedError

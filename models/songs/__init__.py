@@ -1,2 +1,5 @@
-from .base import Song
-from .lyrics import LyricsSong
+from .base import *
+
+from .local import *
+from .spotify import *
+from .youtube import *
