@@ -3,12 +3,12 @@ from discord.ext import commands
 
 import discord
 
-from resources import Devs
+from resources import JSONConnection
 
-from models import Advices, LikedSongs, SongsChoice
+from models import LocalPlaylist, SongsChoice
 from models import Players
-from models import Song, LyricsSong
-from models.utils.errors import SearchingException
+from models import SpotifySong
+from resources import SearchingException
 
 
 __all__ = (
@@ -34,16 +34,16 @@ class SongMenu(discord.ui.View):
     async def play_song(self, interaction: discord.Interaction, button: discord.ui.Button):
         button.disabled = True
         await interaction.response.edit_message(view=self)
-        
+
         player = await self.players.load(interaction)
-        await interaction.followup.send("Added to Queue.", embed=self.song.embeds[0])
+        await interaction.followup.send("Added to Queue.", embed=self.song.embed)
         await player.add_song(self.song, requester=interaction.user)
 
 
     @discord.ui.button(emoji="💟")
     async def like_song(self, interaction: discord.Interaction, _):
-        playlist = LikedSongs.from_database(interaction.user)
-        playlist.add_song(self.song)
+        playlist = await LocalPlaylist.load(interaction, title='Liked', target_id=interaction.user.id)
+        await playlist.add_song(self.song, interaction.user.id)
         await interaction.response.send_message(f"`{self.song.title} • {self.song.author}` added to `Liked Songs`", ephemeral=True)
 
 
@@ -82,7 +82,7 @@ class Songs(slash.Group):
         dev_message = ""
         usr_message = ""
 
-        match interaction.command:            
+        match interaction.command:
             case None:
                 dev_message = "There's been an unknown error."
                 usr_message = "There's been an unknown error, please try again or contact the developer."
@@ -104,7 +104,7 @@ class Songs(slash.Group):
             "\n```"
         )
 
-        with Devs() as devs:
+        with JSONConnection('devs.json') as devs:
             for dev_id in devs:
                 dev = await self.client.fetch_user(dev_id)
                 await dev.send(dev_message)
@@ -122,19 +122,18 @@ class Songs(slash.Group):
     @slash.command(name="advice", description="Advices a song to someone in this server")
     async def advice_song(self, interaction: discord.Interaction, song: str, to: discord.Member) -> None:
         await interaction.response.defer()
-        advices = Advices.from_database(to)
+        advices = await LocalPlaylist.load(interaction, title='Advices', target_id=to.id)
         if not song.startswith("http"):
-            choice = SongsChoice.search(song, Song)
+            choice = SongsChoice.search(song, SpotifySong)
             _song = await choice.choose(interaction)
         else:
-            _song = Song.search(song)
+            _song = await SpotifySong.find(song)
 
         embed = _song.embed
 
         if _song not in advices:
-            advices.add_song(_song)
+            await advices.add_song(_song, interaction.user.id) # type: ignore
             message = f"Adviced to {to.mention}"
-            
         else:
             message = f"This song is already in {to.display_name}'s advice list"
 
@@ -145,10 +144,10 @@ class Songs(slash.Group):
         await interaction.response.defer()
 
         if choose:
-            choice = SongsChoice.search(song, LyricsSong)
+            choice = SongsChoice.search(song, SpotifySong)
             _song = await choice.choose(interaction)
         else:
-            _song = LyricsSong.search(song)
+            _song = await SpotifySong.find(song)
 
         menu = SongMenu(interaction.guild, _song, False)
         await interaction.followup.send(embed=_song.embed, view=menu)
@@ -158,13 +157,13 @@ class Songs(slash.Group):
         await interaction.response.defer()
         try:
             if choose:
-                choice = SongsChoice.search(song, LyricsSong)
+                choice = SongsChoice.search(song, SpotifySong)
                 _song = await choice.choose(interaction)
             else:
-                _song = LyricsSong.search(song)
+                _song = await SpotifySong.find(song)
         except SearchingException as e:
             # await self.send_error_message(interaction, e, ephemeral=True)
             return
 
         menu = SongMenu(interaction.guild, _song, True)
-        await interaction.response.send_message(embed=_song.switch(), view=menu) # type: ignore
+        await interaction.response.send_message(embed=_song.lyrics, view=menu)

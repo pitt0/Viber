@@ -3,12 +3,12 @@ from discord.ext import commands
 
 import discord
 
-from resources import Devs
+from resources import JSONConnection
+from resources import SearchingException
 
 from models import SongsChoice
-from models import LyricsSong
+from models import YTMusicSong
 from models import Players, MusicPlayer
-from models.utils.errors import SearchingException
 
 
 
@@ -19,7 +19,8 @@ class Player(slash.Group):
         self.client = client
         self.players = Players()
 
-    def can_connect(self, interaction: discord.Interaction) -> bool:
+    @staticmethod
+    def can_connect(interaction: discord.Interaction) -> bool:
         assert not isinstance(interaction.user, discord.User)
         return interaction.user.voice is not None and isinstance(interaction.user.voice.channel, discord.VoiceChannel)
 
@@ -53,8 +54,9 @@ class Player(slash.Group):
                 parent_name = ""
                 if interaction.command.parent is not None:
                     parent_name = f"{interaction.command.parent.name} "
-                dev_message = f"There's been an error on command _{parent_name}{interaction.command.name}_"
-                usr_message = f"There's been an error trying to run command _{parent_name}{interaction.command.name}_"
+                full_name = parent_name + interaction.command.name
+                dev_message = f"There's been an error on command _{full_name}_"
+                usr_message = f"There's been an error trying to run command _{full_name}_"
             case slash.ContextMenu():
                 dev_message = f"There's been an error on app command _{interaction.command.name}_"
                 usr_message = f"There's been an error trying to run app command _{interaction.command.name}_"
@@ -66,7 +68,7 @@ class Player(slash.Group):
             "\n```"
         )
 
-        with Devs() as devs:
+        with JSONConnection('devs.json') as devs:
             for dev_id in devs:
                 dev = await self.client.fetch_user(dev_id)
                 await dev.send(dev_message)
@@ -122,10 +124,10 @@ class Player(slash.Group):
 
         try:
             if choose:
-                choice = SongsChoice.search(reference, LyricsSong)
+                choice = SongsChoice.search(reference, YTMusicSong)
                 song = await choice.choose(interaction)
             else:
-                song = LyricsSong.search(reference)
+                song = await YTMusicSong.find(reference)
         except SearchingException:
             # await self.send_error_message(interaction, e, ephemeral=True)
             return

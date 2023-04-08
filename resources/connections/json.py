@@ -1,4 +1,4 @@
-from typings import Any
+from typing import Any
 
 import json
 

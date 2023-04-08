@@ -3,7 +3,7 @@ from typing import TypedDict
 
 
 class ArtistEntry(TypedDict):
-    external_url: dict[str, str]
+    external_urls: dict[str, str]
     href: str
     id: str
     name: str
