@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 import discord
 
 from .queue import Queue
-from models.playlists import LikedSongs
-from models.songs import LyricsSong
+from models.playlists import LocalPlaylist
+from models.songs import Track
 
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class PlayerUI(discord.ui.View):
         return self.__player.queue
 
     @property
-    def song(self) -> LyricsSong:
+    def song(self) -> Track:
         return self.queue.current[0]
 
     @discord.ui.button(emoji="⏪", disabled=True)
@@ -54,8 +54,8 @@ class PlayerUI(discord.ui.View):
 
     @discord.ui.button(emoji="💟")
     async def like(self, interaction: discord.Interaction, _) -> None:
-        ls = LikedSongs(interaction.user)
-        ls.add_song(self.song)
+        ls = await LocalPlaylist.load(interaction, title='Liked', target_id=interaction.user.id)
+        ls.add_song(self.song, interaction.user.id) # type: ignore
         await interaction.response.send_message(f"Playlist Updated!", ephemeral=True)
 
     @discord.ui.button(emoji="⏹️", row=1)
@@ -82,5 +82,5 @@ class PlayerUI(discord.ui.View):
             case discord.ButtonStyle.grey:
                 button.style = discord.ButtonStyle.blurple
                 message = "Switched to lyrics"
-        await self.message.edit(embed=self.song.switch(), view=self)
+        await self.message.edit(embed=self.song.lyrics, view=self)
         await interaction.response.send_message(message, ephemeral=True)

@@ -4,9 +4,8 @@ import discord
 from .queue import Queue
 from .ui import PlayerUI
 
-from models.songs import LyricsSong
-from models.utils import FFMPEG_OPTIONS
-from resources import USER
+from models.songs import Track
+from models.utils import FFMPEG_OPTIONS, USER
 
 
 
@@ -166,7 +165,7 @@ class MusicPlayer:
                     await self.resume()
                     print("Resumed.")
 
-    async def add_song(self, song: LyricsSong, requester: USER) -> None:
+    async def add_song(self, song: Track, requester: USER) -> None:
         source = await self.get_source(song.source)
         self.queue.append((song, source, requester))
         if self.sleeping:
