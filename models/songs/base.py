@@ -7,7 +7,7 @@ import discord
 import models.utils.genius as gl
 import models.utils.youtube as yt
 
-from resources import Connection
+from models.utils import Field
 
 
 __all__ = (
@@ -80,7 +80,7 @@ class Track:
         return self.album.release_date
 
     @cached_property
-    def as_field(self) -> dict[str, Any]:
+    def as_field(self) -> Field:
         return {"name": self.title, "value": self._embed_artists, "inline": True}
 
     @cached_property
