@@ -6,7 +6,7 @@ import yarl
 from .permissions import PlaylistPermission
 from .base import Base
 from models.songs import YTMusicSong
-from models.utils.youtube import playlist
+from models.requests.web.youtube import playlist
 
 
 
