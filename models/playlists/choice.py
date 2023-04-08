@@ -4,7 +4,7 @@ from typing import Self, Type
 import discord
 
 from models.songs import S
-from models.errors import NotFound
+from resources import NotFound
 from ui import MenuView
 
 
