@@ -9,10 +9,10 @@ class PlaylistRequest:
         with Connection() as cursor:
             query = (
                 'select rowid, playlist_title, target_id, author_id, creation_date, privacy '
-                'from playlists'
-                'where rowid = :id or (playlist_title = :title and target_id = :target);'
+                'from playlists '
+                'where rowid = ? or (playlist_title = ? and target_id = ?);'
             )
-            params = {'id': id, 'title': title, 'target': target}
+            params = (id or None, title or None, target or None)
 
             cursor.execute(query, params)
             return cursor.fetchone()

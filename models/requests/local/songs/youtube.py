@@ -52,7 +52,7 @@ class YouTubeRequest:
             await cursor.execute(query, params)
 
     @classmethod
-    async def dump(cls, id: str, title: str, album_id: int, artists: Iterable, duration: str) -> None:
+    async def dump(cls, id: str, title: str, album_id: int, artists: Iterable, duration: str) -> int:
         async with (
             aiosqlite.connect('database/music.sqlite') as db,
             db.cursor() as cursor
@@ -72,3 +72,6 @@ class YouTubeRequest:
                     (title, album_id, artist.id, title, album_id, artist.id))
 
             await db.commit()
+            
+            await cursor.execute('select song_id from external_ids where youtube_id = ?', (id,))
+            return (await cursor.fetchone())[0] # type: ignore

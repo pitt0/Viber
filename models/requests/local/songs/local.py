@@ -15,4 +15,3 @@ class SongRequest:
             )
             cursor.execute(query, (id,))
             return cursor.fetchall()
-        
