@@ -6,6 +6,7 @@ import discord
 import yarl
 
 from .base import *
+from .local import LocalSong
 from models.requests.local import YouTubeRequest, YouTubeAlbumRequest
 from models.requests.web.youtube import item, album, search, source
 from resources.typings import ytmusic
@@ -13,6 +14,8 @@ from resources.typings import ytmusic
 
 
 class YTMusicArtist(Artist):
+
+    id: str
 
     def __init__(self, id: str, name: str) -> None:
         super().__init__(id, name, f'https://music.youtube.com/channel/{id}')
@@ -24,6 +27,8 @@ class YTMusicArtist(Artist):
 
 
 class YTMusicAlbum(Album):
+
+    id: str
 
     async def dump(self) -> None:
         await YouTubeAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
@@ -48,6 +53,8 @@ class YTMusicAlbum(Album):
 
 class YTMusicSong(Track):
 
+    id: str
+
     @cached_property
     def source(self) -> str:
         print(f'Fetching source url of {self}') # NOTE: Log
@@ -65,9 +72,10 @@ class YTMusicSong(Track):
             color=discord.Colour.dark_purple()
         ).set_thumbnail(url=self.thumbnail)
     
-    async def dump(self) -> None:
+    async def dump(self) -> LocalSong:
         await self.album.dump()
-        await YouTubeRequest.dump(self.id, self.title, self.album.id, self.artists, self.duration)
+        rowid = await YouTubeRequest.dump(self.id, self.title, self.album.id, self.artists, self.duration)
+        return LocalSong.load(rowid)
     
     @classmethod
     def load(cls, id: str) -> Self:

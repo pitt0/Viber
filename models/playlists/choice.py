@@ -37,7 +37,7 @@ class SongsChoice(List[S]):
         else:
             await interaction.response.send_message(embed=self.first.embed, view=view)
         await view.wait()
-        return view.song
+        return await view.song.dump()
 
 
 

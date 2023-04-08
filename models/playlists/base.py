@@ -41,7 +41,7 @@ class Base(list[S], Paginator):
             description=f"by {self.author.display_name}",
             color=discord.Color.blurple()
         )
-        _e.set_footer(text=f"Page {index}")
+        _e.set_footer(text=f"Page {index} of {(len(self)//12)+1}")
 
         for song in self[(index - 1) * 12 : index*12]:
             _e.add_field(**song.as_field)
@@ -69,7 +69,7 @@ class Base(list[S], Paginator):
             for owner in data
         ]
     
-    def add_song(self, song: S, by: int) -> None:
+    async def add_song(self, song: S, by: int) -> None:
         self.append(song)
         PlaylistRequest.add(self.id, song.id, by)
 

@@ -33,24 +33,11 @@ class Lister(list[EmbedPlaylist], Paginator):
         """
         ...
 
-    @staticmethod
-    def paginate(title: str, playlists: list) -> list[discord.Embed]:
-        pages: list[discord.Embed] = []
-
-        for index, playlist in enumerate(playlists):
-            page = (index // 12) + 1
-
-            if page > len(pages):
-                pages.append(
-                    discord.Embed(
-                        title=title,
-                        description=f"Page {page}"
-                    )
-                )
-
-            pages[-1].add_field(name=playlist.title, value=playlist.date, inline=True)
-
-        return pages
+    def paginate(self, title: str, page: int) -> discord.Embed:
+        return discord.Embed(
+            title=title,
+            description=f'Page {page} of {(len(self)//12)+1}'
+        )
     
     def embeds(self) -> list[discord.Embed]:
         return super().embeds(lambda playlist: {'name': playlist.title, 'value': playlist.date, 'inline': True})

@@ -23,71 +23,81 @@ class YouTubeAlbumRequest:
         
 
     @staticmethod
-    async def _upload_album(cursor: aiosqlite.Cursor, id: str, name: str, thumbnail: str, year: str) -> None:
-        await cursor.execute('select 1, thumbnail from albums where album_name = ? and release_date like %?;', (name, year))
-        # NOTE: '1' is needed in case the album is present and thumbnail is None
-        if (res := await cursor.fetchone()) is not None:
-            query = ''
-            params = tuple()
-
-            if res[1] is None:
-                query = 'update albums set thumbnail = ? where album_name = ? and release_date like %?; '
-                params = (thumbnail, name, year)
-            
-            query += (
-                'update external_album_ids ' 
-                'inner join albums on albums.rowid = album_id ' 
-                'set youtube_id = ? '
-                'where album_name = ? and release_date like %? and youtube_id = null;'
-            )
-            params += (id, name, year)
-        else:
-            query = (
-                'insert into albums '
-                'values (?, ?, ?); '
-                'insert into external_album_ids (album_id, youtube_id) '
-                'values ((select rowid from albums where album_name = ? and release_date = ?), ?);'
-                )
-            params = (name, year, thumbnail, name, year, id)
-
-        await cursor.execute(query, params)
-
-    @staticmethod
-    async def _upload_artists(cursor: aiosqlite.Cursor, artists: Iterable) -> None:
-        for artist in artists:
-            await cursor.execute('select 1, youtube_id from artists_ids where artist_name = ?;', (artist.name))
-            if (res := await cursor.fetchone()) is not None:
-                if res[1] is not None:
-                    continue
-                query = 'update artists_ids set youtube_id = ? where artist_name = ?;'
-                params = (artist.id, artist.name)
-
-            else:
-                query = 'insert into artists_ids (artist_name, youtube_id) values (?, ?);'
-                params = (artist.name, artist.id)
-
-            await cursor.execute(query, params)
-
-
-    @classmethod
-    async def dump(cls, id: str, name: str, artists: Iterable, thumbnail: str, year: str) -> None:
+    async def _upload_album(id: str, name: str, thumbnail: str, year: str) -> None:
         async with (
             aiosqlite.connect('database/music.sqlite') as db,
             db.cursor() as cursor
         ):
-            await asyncio.gather(
-                cls._upload_album(cursor, id, name, thumbnail, year),
-                cls._upload_artists(cursor, artists)
-            )
+            await cursor.execute('select 1, thumbnail from albums where album_name = ? and release_date like ?;', (name, year))
+            # NOTE: '1' is needed in case the album is present and thumbnail is None
+            if (res := await cursor.fetchone()) is not None:
+                query = ''
+                params = tuple()
+
+                if res[1] is None:
+                    query = 'update albums set thumbnail = ? where album_name = ? and release_date like ?; '
+                    params = (thumbnail, name, year)
+                    await cursor.execute(query, params)
+                
+                query = (
+                    'update external_album_ids ' 
+                    'set youtube_id = ? '
+                    'inner join albums on albums.rowid = album_id ' 
+                    'where album_name = ? and release_date like ? and youtube_id = null;'
+                )
+                params = (id, name, year)
+                await cursor.execute(query, params)
+            else:
+                query = (
+                    'insert into albums '
+                    'values (?, ?, ?); '
+                    'insert into external_album_ids (album_id, youtube_id) '
+                    'values ((select rowid from albums where album_name = ? and release_date = ?), ?);'
+                    )
+                params = (name, year, thumbnail, name, year, id)
+
+            await cursor.execute(query, params)
             await db.commit()
 
+    @staticmethod
+    async def _upload_artists(artists: Iterable) -> None:
+        async with (
+            aiosqlite.connect('database/music.sqlite') as db,
+            db.cursor() as cursor
+        ):
+            for artist in artists:
+                await cursor.execute('select 1, youtube_id from artists_ids where artist_name = ?;', (artist.name))
+                if (res := await cursor.fetchone()) is not None:
+                    if res[1] is not None:
+                        continue
+                    query = 'update artists_ids set youtube_id = ? where artist_name = ?;'
+                    params = (artist.id, artist.name)
+
+                else:
+                    query = 'insert into artists_ids (artist_name, youtube_id) values (?, ?);'
+                    params = (artist.name, artist.id)
+
+                await cursor.execute(query, params)
+            await db.commit()
+
+
+    @classmethod
+    async def dump(cls, id: str, name: str, artists: Iterable, thumbnail: str, year: str) -> None:
+        
+        await asyncio.gather(
+            cls._upload_album(id, name, thumbnail, year),
+            cls._upload_artists(artists)
+        )
+        async with (
+            aiosqlite.connect('database/music.sqlite') as db,
+            db.cursor() as cursor
+        ):
             for artist in artists:
                 await cursor.execute((
-                    'insert into album_authors '
-                    'values ((select rowid from albums where album_name = ? and release_date like %?), ?) '
-                    'where not exists ((select rowid from albums where album_name = ? and release_date like %?), ?);'
+                    'insert or ignore into album_authors '
+                    'values ((select rowid from albums where album_name = ? and release_date like ?), ?);'
                     ), 
-                    (name, year, artist.id, name, year, artist.id))
+                    (name, year, artist.id))
 
             await db.commit()
         

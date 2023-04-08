@@ -6,6 +6,7 @@ import discord
 import yarl
 
 from .base import *
+from .local import LocalSong
 from models.requests.local import SpotifyRequest, SpotifyAlbumRequest
 from models.requests.web.spotify import track, search
 
@@ -16,14 +17,18 @@ from resources.typings import spotify
 
 class SpotifyArtist(Artist):
 
+    id: str
+
     @classmethod
     def create(cls, data: spotify.ArtistEntry) -> Self:
-        url = data['external_url'].get('spotify', f"https://open.spotify.com/artist/{data['id']}")
+        url = data['external_urls'].get('spotify', f"https://open.spotify.com/artist/{data['id']}")
         return cls(data['id'], data['name'], url)
 
 
 
 class SpotifyAlbum(Album):
+
+    id: str
 
     async def dump(self) -> None:
         await SpotifyAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
@@ -46,6 +51,8 @@ class SpotifyAlbum(Album):
 
 class SpotifySong(Track):
 
+    id: str
+
     @cached_property
     def thumbnail(self) -> str:
         return self.album.thumbnail
@@ -54,9 +61,10 @@ class SpotifySong(Track):
     def embed(self) -> discord.Embed:
         return super().embed.set_thumbnail(url=self.thumbnail)
     
-    async def dump(self) -> None:
+    async def dump(self) -> LocalSong:
         await self.album.dump()
-        await SpotifyRequest.dump(self.id, self.title, self.album.id, self.artists, self.duration)
+        rowid = await SpotifyRequest.dump(self.id, self.title, self.album.id, self.artists, self.duration)
+        return LocalSong.load(rowid)
 
     @classmethod
     def load(cls, id: str) -> Self:
@@ -78,7 +86,7 @@ class SpotifySong(Track):
     @classmethod
     def get(cls, url: str) -> spotify.TrackData:
         _url = yarl.URL(url)
-        return track(_url.name)
+        return track(str(_url.name))
 
     @overload
     @classmethod

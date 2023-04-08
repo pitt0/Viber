@@ -1,6 +1,6 @@
 from functools import cached_property
 from typing import Any, Self, Sequence
-from typing import TypeVar
+from typing import TypeVar, TYPE_CHECKING
 
 import discord
 
@@ -8,6 +8,9 @@ import models.requests.web.genius as gl
 import models.requests.web.youtube as yt
 
 from models.typing import Field
+
+if TYPE_CHECKING:
+    from .local import LocalSong
 
 
 __all__ = (
@@ -31,7 +34,7 @@ class Artist:
 
     @cached_property
     def href(self) -> str:
-        return f"({self.name})[{self.url}]" if self.url else self.name
+        return f"[{self.name}]({self.url})" if self.url else self.name
 
     @classmethod
     def create(cls, data: Any) -> Self:
@@ -110,7 +113,7 @@ class Track:
     def _embed_artists(self) -> str:
         return ", ".join(artist.href for artist in self.artists)
     
-    async def dump(self) -> None:
+    async def dump(self) -> 'LocalSong':
         raise NotImplementedError
 
     @classmethod
@@ -134,9 +137,14 @@ class Track:
         raise NotImplementedError
 
     @classmethod
-    def find(cls, query) -> Self:
-        """Creates a `Track` instance using `search` and then `create`"""
-        return cls.create(cls.search(query, 1))
+    async def find(cls, query: str) -> 'LocalSong':
+        """Creates a `LocalSong` instance using either `search` or `get` and then `create`"""
+        if query.startswith('https://open.spotify.com'):
+            song = cls.create(cls.get(query))
+        else:
+            song = cls.create(cls.search(query, 1))
+        song = await song.dump()
+        return song
 
     def exists(self) -> bool:
         raise NotImplementedError

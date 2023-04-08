@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Self
 
 from .base import Artist, Album, Track
@@ -6,6 +7,8 @@ from models.requests.local import LocalAlbumRequest, SongRequest
         
 
 class LocalAlbum(Album):
+
+    id: int
 
     @classmethod
     def load(cls, id: int) -> Self:
@@ -20,11 +23,17 @@ class LocalAlbum(Album):
 
 class LocalSong(Track):
 
+    id: int
+
+    @cached_property
+    def thumbnail(self) -> str:
+        return self.album.thumbnail
+
     @classmethod
     def load(cls, rowid: int) -> Self:
         artists = []
         data = SongRequest.get(rowid)
-
+        
         for  _, _, name, _, _, id in data:
             artists.append(Artist(id, name, f'https://open.spotify.com/artist/{id}'))
             
