@@ -1,55 +1,49 @@
 from list_ext import List
-from typing import Type
+from typing import Self, Type
 
 import discord
 
-from models.songs import Song, LyricsSong
-from models.utils import NotFound
-from models.utils import spotify as sp
-from models.utils import youtube as yt
+from models.songs import S
+from models.errors import NotFound
 from ui import MenuView
 
 
 __all__ = ("SongsChoice",)
 
 
-class SongsChoice(List[Song]):
+class SongsChoice(List[S]):
 
     reference: str
 
-    def __init__(self, reference: str, purpose: Type[Song]):
+    def __init__(self, reference: str, purpose: Type[S], limit: int = 5) -> None:
         self.reference = reference
-        tracks = sp.search(reference)
-        if (len(tracks) == 0):
-            tracks = yt.search_infos(reference)
+        tracks = purpose.search(reference, limit)
             
-        super().__init__(purpose.as_choice(track) for track in tracks)
+        super().__init__(purpose.create(track) for track in tracks) # NOTE: is it worth? should i do another class?
 
     @classmethod
-    def search(cls, reference: str, purpose: Type[Song]):
-        self = cls(reference, purpose)
+    def search(cls, reference: str, purpose: Type[S], limit: int = 5) -> Self:
+        self = cls(reference, purpose, limit)
         if self.empty:
             # It's ok for the moment, if error tracking does not work:
             # use `if self.empty` out of this method
             raise NotFound(f"Searching `{reference}` returned no result.")
         return self
 
-
-    async def choose(self, interaction: discord.Interaction) -> Song | LyricsSong:
+    async def choose(self, interaction: discord.Interaction) -> S:
         view = VSongsChoice(self)
         if interaction.response.is_done():
             await interaction.followup.send(embed=self.first.embed, view=view)
         else:
             await interaction.response.send_message(embed=self.first.embed, view=view)
         await view.wait()
-        view.song.cache(self.reference)
         return view.song
 
 
 
 class VSongsChoice(MenuView):
 
-    def __init__(self, songs: SongsChoice):
+    def __init__(self, songs: SongsChoice) -> None:
         embeds = songs.select(lambda song: song.embed)
         super().__init__(embeds)
         self.songs = songs

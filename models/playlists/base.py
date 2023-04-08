@@ -1,88 +1,78 @@
-from abc import abstractclassmethod
-from list_ext import List
-from typing import Self, Type
+from functools import cached_property
+from typing import Self
 
+import datetime
 import discord
 
-from models.songs import Song
-from resources import CacheFile, USER
+from .paginator import Paginator
+from .permissions import Owner, PlaylistPermission
+from models.songs import S
+from resources import MISSING
+from resources.requests import PlaylistRequest
 
 
-__all__ = ("Playlist",)
+__all__ = ('Base',)
 
 
+class Base(list[S], Paginator):
 
-class Playlist(List[Song]):
-    
-    __slots__ = (
-        "name",
-        "id",
-        "cache"
-    )
+    __client: discord.Client
 
-    id: int
-    cache: Type[CacheFile]
-    
-    def __init__(self, name: str, *songs):
-        super().__init__(songs)
-        self.name = name
+    def __init__(self, id: int, title: str, target: discord.User | discord.Guild, author: discord.User, creation_date: datetime.datetime, privacy: PlaylistPermission) -> None:
+        self.id = id
+        self.title = title
+        self.target = target
+        self.author = author
+        self.creation_date = creation_date
+        self.privacy = privacy
 
-    def __eq__(self, __o: object) -> bool:
-        return isinstance(__o, self.__class__) and __o.id == self.id
 
-    def __ne__(self, __o: object) -> bool:
-        return not self.__eq__(__o)
+    @cached_property
+    def date(self) -> str:
+        return self.creation_date.strftime('%d/%m/%y')
 
-    def __str__(self) -> str:
-        return f"{self.name}#{self.id}"
+    @cached_property
+    def upload_date(self) -> str:
+        return self.creation_date.strftime('%y-%m-%d %H:%M:%S')
 
-    def __create_embed(self, page: int) -> discord.Embed:
-        if hasattr(self, "user"):
-            target = self.user # type: ignore
-        else:
-            target = self.author # type: ignore
+    def paginate(self, index: int) -> discord.Embed:
         _e = discord.Embed(
-            title=self.name,
-            description=f"by {target.display_name}",
+            title=self.title,
+            description=f"by {self.author.display_name}",
             color=discord.Color.blurple()
         )
-        _e.set_footer(text=f"Page {page}")
+        _e.set_footer(text=f"Page {index}")
+
+        for song in self[(index - 1) * 12 : index*12]:
+            _e.add_field(**song.as_field)
         return _e
 
-    @property
     def embeds(self) -> list[discord.Embed]:
-        es: list[discord.Embed] = []
-        
-        for index, song in enumerate(self):
-            page = (index // 12) + 1
+        return super().embeds(lambda song: song.as_field)
 
-            if page > len(es):
-                es.append(self.__create_embed(page))
-            
-            current = es[-1]
-            current.add_field(**song.field)
-        
-        return es
 
-    def add_song(self, song: Song) -> None:
-        with self.cache() as cache:
-            cache[str(self.id)]["songs"].append(song.data.id)
-        self.append(song)
-
-    def remove_song(self, song: Song) -> None:
-        with self.cache() as cache:
-            cache[str(self.id)]["songs"].remove(song.data.id)
-        self.remove(song)
-        
-    @abstractclassmethod
-    def from_database(cls, _) -> Self | None:
-        """Retrives the Playlist from the DataBase"""
+    async def dump(self) -> None:
+        ...
 
     @classmethod
-    def load(cls, person: USER) -> list[str]:
-        with cls.cache() as cache:
-            if str(person.id) not in cache:
-                cache[str(person.id)] = {
-                    "songs": []
-                }
-            return cache[str(person.id)]["songs"]
+    async def load(cls, interaction: discord.Interaction, id: int = MISSING, title: str = MISSING, target_id: int = MISSING) -> Self:
+        ...
+    
+    @property
+    async def owners(self) -> list[Owner]:
+        data = PlaylistRequest.owners(self.id)
+        return [
+            Owner(
+                await self.__client.fetch_user(owner[0]),
+                PlaylistPermission(owner[1])
+            )
+            for owner in data
+        ]
+    
+    def add_song(self, song: S, by: int) -> None:
+        self.append(song)
+        PlaylistRequest.add(self.id, song.id, by)
+
+    def remove_song(self, song: S) -> None:
+        self.remove(song)
+        PlaylistRequest.remove(self.id, song.id)
