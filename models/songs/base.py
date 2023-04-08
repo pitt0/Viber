@@ -4,8 +4,8 @@ from typing import TypeVar
 
 import discord
 
-import models.utils.genius as gl
-import models.utils.youtube as yt
+import models.requests.web.genius as gl
+import models.requests.web.youtube as yt
 
 from models.utils import Field
 

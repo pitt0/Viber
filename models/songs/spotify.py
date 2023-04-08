@@ -6,9 +6,10 @@ import discord
 import yarl
 
 from .base import *
-from models.utils.spotify import track, search
+from models.requests.local import SpotifyRequest, SpotifyAlbumRequest
+from models.requests.web.spotify import track, search
+
 from resources import Time
-from resources.requests import SpotifyRequest, SpotifyAlbumRequest
 from resources.typings import spotify
 
 

@@ -1,7 +1,7 @@
 from typing import Self
 
 from .base import Artist, Album, Track
-from resources import LocalAlbumRequest, SongRequest
+from models.requests.local import LocalAlbumRequest, SongRequest
 
         
 

@@ -6,8 +6,8 @@ import discord
 import yarl
 
 from .base import *
-from models.utils.youtube import item, album, search, source
-from resources.requests import YouTubeRequest, YouTubeAlbumRequest
+from models.requests.local import YouTubeRequest, YouTubeAlbumRequest
+from models.requests.web.youtube import item, album, search, source
 from resources.typings import ytmusic
 
 
