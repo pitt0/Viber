@@ -3,7 +3,7 @@ from typing import Callable, Iterable, TypeVar
 
 import discord
 
-from models.utils import Field
+from models.typing import Field
 
 
 T = TypeVar('T')

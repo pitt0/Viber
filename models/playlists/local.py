@@ -47,4 +47,3 @@ class LocalPlaylist(Base[LocalSong]):
         with Connection() as cursor:
             cursor.execute('select 1 from playlists where target_id = ? and author_id = ? and title = ?;', (target.id, interaction.user.id, title))
             return bool((cursor.fetchone() or (None,))[0])
-            
