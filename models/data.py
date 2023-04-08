@@ -1,7 +1,7 @@
 import discord
 
 from .player import MusicPlayer
-from .utils import GUILD_ID
+from .typing import GUILD_ID
 
 
 __all__ = ("Players",)

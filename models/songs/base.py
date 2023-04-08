@@ -7,7 +7,7 @@ import discord
 import models.requests.web.genius as gl
 import models.requests.web.youtube as yt
 
-from models.utils import Field
+from models.typing import Field
 
 
 __all__ = (

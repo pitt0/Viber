@@ -6,7 +6,7 @@ import discord
 import random
 
 from models.songs import Track
-from models.utils import USER
+from models.typing import USER
 
 
 SONG_ENTRY = tuple[Track, discord.FFmpegOpusAudio, USER]

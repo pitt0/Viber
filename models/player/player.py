@@ -1,12 +1,16 @@
 import asyncio
 import discord
+import json
 
 from .queue import Queue
 from .ui import PlayerUI
 
-from models import FFMPEG_OPTIONS, USER
 from models.songs import Track
+from models.typing import USER
 
+
+with open('database/ffmpeg.json') as f:
+    FFMPEG_OPTIONS = json.load(f)
 
 
 class MusicPlayer:

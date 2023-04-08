@@ -6,9 +6,9 @@ import discord
 
 from .paginator import Paginator
 from .permissions import Owner, PlaylistPermission
+from models.requests import PlaylistRequest
 from models.songs import S
 from resources import MISSING
-from resources.requests import PlaylistRequest
 
 
 __all__ = ('Base',)
