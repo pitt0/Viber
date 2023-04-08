@@ -1,19 +1,4 @@
 from typing import Any
-from typing import TypeAlias, TypedDict
-
-import discord
-
-# discord
-GUILD_ID: TypeAlias = int
-USER_ID: TypeAlias = int
-USER: TypeAlias = discord.User | discord.Member
-
-# music
-SONG_ID: TypeAlias = str
-PLAYLIST_BASE: TypeAlias = dict[str, dict[str, list[SONG_ID]]]
-
-class Collection(TypedDict):
-    songs: list[SONG_ID]
 
 # generic
 class _MissingSentinel:
