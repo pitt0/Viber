@@ -5,7 +5,7 @@ from typing import Self
 import discord
 
 from .paginator import Paginator
-from models.utils import USER
+from models.typing import USER
 from resources import Connection
 
 
@@ -74,8 +74,7 @@ class GuildLister(Lister):
             )
 
 
-    def embeds(self, guild: discord.Guild) -> list[discord.Embed]:
-        self = self.load(guild)
+    def embeds(self) -> list[discord.Embed]:
         return super().embeds()
 
 
@@ -100,7 +99,6 @@ class UserLister(Lister):
                 )
             )
 
-    def embeds(self, user: USER) -> list[discord.Embed]:
-        self = self.load(user)
+    def embeds(self) -> list[discord.Embed]:
         return super().embeds()
 

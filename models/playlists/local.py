@@ -6,9 +6,10 @@ import discord
 
 from .permissions import PlaylistPermission
 from .base import Base
+from models.requests import PlaylistRequest
 from models.songs import LocalSong
+from resources.connections import Connection
 from resources.typings import MISSING
-from resources.requests import PlaylistRequest
 
 
 __all__ = ('LocalPlaylist',)
@@ -39,3 +40,11 @@ class LocalPlaylist(Base[LocalSong]):
         target = interaction.guild or interaction.user
         rowid = PlaylistRequest.dump(name, target.id, interaction.user.id, privacy.value)
         return cls(rowid, name, target, interaction.user, datetime.datetime.today(), privacy) # type: ignore
+    
+    @staticmethod
+    def exists(interaction: discord.Interaction, title: str) -> bool:
+        target = interaction.guild or interaction.user
+        with Connection() as cursor:
+            cursor.execute('select 1 from playlists where target_id = ? and author_id = ? and title = ?;', (target.id, interaction.user.id, title))
+            return bool((cursor.fetchone() or (None,))[0])
+            
