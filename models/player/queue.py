@@ -1,16 +1,17 @@
-from list_ext import List
+from list_ext import List, LoopingList
+from typing import Any
 from typing import overload
 
 import discord
 import random
 
-from models.songs import LyricsSong
-from resources import USER
+from models.songs import Track
+from models.utils import USER
 
 
-SONG_ENTRY = tuple[LyricsSong, discord.FFmpegOpusAudio, USER]
+SONG_ENTRY = tuple[Track, discord.FFmpegOpusAudio, USER]
 
-class Queue(List[SONG_ENTRY]):
+class Queue(LoopingList[SONG_ENTRY]):
 
     index: int
 
@@ -37,7 +38,7 @@ class Queue(List[SONG_ENTRY]):
             color=discord.Color.orange()
         )
         for song, _, _ in self.left:
-            embed.add_field(**song.field)
+            embed.add_field(**song.as_field)
         
         return embed
 
@@ -53,11 +54,11 @@ class Queue(List[SONG_ENTRY]):
     def __getitem__(self, key: slice) -> list[SONG_ENTRY]:
         ...
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Any:
         if isinstance(key, int):
             if self.loop:
-                if self.index > self.count:
-                    key -= self.count
+                if self.index > self.capacity:
+                    key -= self.capacity
             return self[key]
 
         return self[key]
@@ -83,7 +84,7 @@ class Queue(List[SONG_ENTRY]):
     def how_long(self) -> int:
         """Returns how many songs are left to play.
         """
-        return self.count - self.index
+        return self.capacity - self.index
 
     def can_shuffle(self) -> bool:
         return self.how_long() > 1
@@ -92,7 +93,7 @@ class Queue(List[SONG_ENTRY]):
         return self.index > 0
 
     def can_next(self) -> bool:
-        return self.index < self.count and not self.song_loop
+        return self.index < self.capacity and not self.song_loop
 
     def done(self) -> bool:
         return not self.looping and self.index == self.length
