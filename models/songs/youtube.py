@@ -6,7 +6,7 @@ import discord
 import yarl
 
 from .base import *
-from models.utils.youtube import song, album, search, source
+from models.utils.youtube import item, album, search, source
 from resources.requests import YouTubeRequest, YouTubeAlbumRequest
 from resources.typings import ytmusic
 
@@ -94,7 +94,7 @@ class YTMusicSong(Track):
             video_id = _url.name
         else:
             raise TypeError(f'YouTube url is neither www.youtube.com/music.youtube.com nor youtu.be, but: {url}')
-        return song(video_id)
+        return item(video_id)
 
     @overload
     @classmethod
