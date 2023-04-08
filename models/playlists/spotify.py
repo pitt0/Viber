@@ -11,7 +11,7 @@ from models.requests.web.spotify import playlist
 
 
 
-class YouTubePlaylist(Base[SpotifySong]):
+class SpotifyPlaylist(Base[SpotifySong]):
 
     @classmethod
     def get(cls, interaction: discord.Interaction, url: str) -> Self:
