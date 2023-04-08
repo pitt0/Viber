@@ -21,13 +21,13 @@ class LocalAlbum(Album):
 class LocalSong(Track):
 
     @classmethod
-    def load(cls, title: str) -> Self:
+    def load(cls, rowid: int) -> Self:
         artists = []
-        data = SongRequest.get(title)
+        data = SongRequest.get(rowid)
 
-        for _, _, _, name, _, _, id in data:
+        for  _, _, name, _, _, id in data:
             artists.append(Artist(id, name, f'https://open.spotify.com/artist/{id}'))
             
-        id, title, album_id, _, duration, sp_id, _ = data[0]
+        title, album_id, _, duration, sp_id, _ = data[0]
         album = LocalAlbum.load(album_id)
-        return cls(id, title, artists, album, duration, f'https://open.spotify.com/track/{sp_id}')
+        return cls(rowid, title, artists, album, duration, f'https://open.spotify.com/track/{sp_id}')
