@@ -22,47 +22,45 @@ class SpotifyAlbumRequest:
 
     @staticmethod
     async def _upload_album(cursor: aiosqlite.Cursor, id: str, name: str, thumbnail: str, release_date: str) -> None:
-        await cursor.execute('select 1, thumbnail from albums where album_name = ? and release_date like %?;', (name, release_date))
+        params = {'name': name, 'rd': release_date, 'thumbnail': thumbnail, 'id': id}
+        await cursor.execute('select 1, thumbnail from albums where album_name = :name and release_date like %:rd;', (name, release_date))
         # NOTE: '1' is needed in case the album is present and thumbnail is None
         if (res := await cursor.fetchone()) is not None:
             query = ''
-            params = tuple()
 
             if res[1] is None:
-                query = 'update albums set thumbnail = ? where album_name = ? and release_date like %?; '
+                query = 'update albums set thumbnail = :thumbnail where album_name = :name and release_date like %:rd; '
                 params = (thumbnail, name, release_date)
             
             query += (
                 'update external_album_ids ' 
                 'inner join albums on albums.rowid = album_id ' 
-                'set spotify_id = ? '
-                'where album_name = ? and release_date like %? and spotify_id = null;'
+                'set spotify_id = :id '
+                'where album_name = :name and release_date like %:rd and spotify_id = null;'
             )
-            params += (id, name, release_date)
         else:
             query = (
                 'insert into albums '
-                'values (?, ?, ?); '
+                'values (:name, :rd, :thumbnail); '
                 'insert into external_album_ids (album_id, spotify_id) '
-                'values ((select rowid from albums where album_name = ? and release_date = ?), ?);'
+                'values ((select rowid from albums where album_name = :name and release_date = :rd), :id);'
                 )
-            params = (name, release_date, thumbnail, name, release_date, id)
+            params = {'name': name, 'rd': release_date, 'thumbnail': thumbnail, 'id': id}
 
         await cursor.execute(query, params)
 
     @staticmethod
     async def _upload_artists(cursor: aiosqlite.Cursor, artists: Iterable) -> None:
         for artist in artists:
-            await cursor.execute('select 1, spotify_id from artists_ids where artist_name = ?;', (artist.name))
+            params = {'name': artist.name, 'id': artist.id}
+            await cursor.execute('select 1, spotify_id from artists_ids where artist_name = :name;', params)
             if (res := await cursor.fetchone()) is not None:
                 if res[1] is not None:
                     continue
-                query = 'update artists_ids set spotify_id = ? where artist_name = ?;'
-                params = (artist.id, artist.name)
+                query = 'update artists_ids set spotify_id = :id where artist_name = :name;'
 
             else:
-                query = 'insert into artists_ids (artist_name, spotify_id) values (?, ?);'
-                params = (artist.name, artist.id)
+                query = 'insert into artists_ids (artist_name, spotify_id) values (:name, :id);'
 
             await cursor.execute(query, params)
     
