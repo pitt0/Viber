@@ -4,8 +4,8 @@ import discord
 from .queue import Queue
 from .ui import PlayerUI
 
+from models import FFMPEG_OPTIONS, USER
 from models.songs import Track
-from models.utils import FFMPEG_OPTIONS, USER
 
 
 
