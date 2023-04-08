@@ -1,7 +1,5 @@
 import json
 
-from .errors import *
-
 from .genius import *
 from .spotify import *
 from .youtube import *
