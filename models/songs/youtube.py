@@ -9,7 +9,6 @@ from .base import *
 from .local import LocalSong
 from models.requests.local import YouTubeRequest, YouTubeAlbumRequest
 from models.requests.web.youtube import item, album, search, source
-from resources.typings import ytmusic
 
 
 
@@ -21,7 +20,7 @@ class YTMusicArtist(Artist):
         super().__init__(id, name, f'https://music.youtube.com/channel/{id}')
 
     @classmethod
-    def create(cls, data: ytmusic.Artist) -> Self:
+    def create(cls, data: dict[str, Any]) -> Self:
         return cls(data['id'], data['name'])
 
 
@@ -43,7 +42,7 @@ class YTMusicAlbum(Album):
         return cls(id, name, artists, thumbnail, rd, f'https://music.youtube.com/playlist?list={id}')
 
     @classmethod
-    def create(cls, data: ytmusic.Album) -> Self:
+    def create(cls, data: dict[str, Any]) -> Self:
         partial = search(data['name'], 'albums', limit=1)[0]
         complete = album(partial['browseId'])
         artists = [YTMusicArtist.create(art) for art in complete['artists']]
@@ -88,13 +87,13 @@ class YTMusicSong(Track):
         return cls(id, title, artists, album, duration, f'https://music.youtube.com/watch?v={id}')
 
     @classmethod
-    def create(cls, data: ytmusic.SongResult) -> Self:
+    def create(cls, data: dict[str, Any]) -> Self:
         artists = [YTMusicArtist.create(art) for art in data['artists']]
         album = YTMusicAlbum.create(data['album'])
         return cls(data['videoId'], data['title'], artists, album, data['duration'], f"https://music.youtube.com/watch?v={data['videoId']}")
     
     @classmethod
-    def get(cls, url: str) -> ytmusic.SongData:
+    def get(cls, url: str) -> dict[str, Any]:
         _url = yarl.URL(url)
         if _url.host == 'www.youtube.com' or _url.host == 'music.youtube.com':
             video_id = _url.query['v']
@@ -106,12 +105,12 @@ class YTMusicSong(Track):
 
     @overload
     @classmethod
-    def search(cls, query: str, limit: Literal[1] = 1) -> ytmusic.SongResult:
+    def search(cls, query: str, limit: Literal[1] = 1) -> dict[str, Any]:
         ...
 
     @overload
     @classmethod
-    def search(cls, query: str, limit: int = 1) -> list[ytmusic.SongResult]:
+    def search(cls, query: str, limit: int = 1) -> list[dict[str, Any]]:
         ...
 
     @classmethod

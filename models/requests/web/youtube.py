@@ -5,7 +5,6 @@ from typing import overload
 
 import json
 
-from resources.typings.results import ytmusic
 
 __all__ = (
     "search",
@@ -20,25 +19,25 @@ ytm = YTMusic()
 
 
 @overload
-def search(query: str, filter: Literal['songs'], limit: int = 5) -> list[ytmusic.SongResult]:
+def search(query: str, filter: Literal['songs'], limit: int = 5) -> list[dict[str, Any]]:
     ...
 
 @overload
-def search(query: str, filter: Literal['artists'], limit: int = 5) -> list[ytmusic.ArtistResult]:
+def search(query: str, filter: Literal['artists'], limit: int = 5) -> list[dict[str, Any]]:
     ...
 
 @overload
-def search(query: str, filter: Literal['albums'], limit: int = 5) -> list[ytmusic.AlbumResult]:
+def search(query: str, filter: Literal['albums'], limit: int = 5) -> list[dict[str, Any]]:
     ...
 
 def search(query: str, filter: str, limit: int = 5) -> Any:
     return ytm.search(query, filter, limit=limit)
 
 
-def item(id: str) -> ytmusic.SongData:
+def item(id: str) -> dict[str, Any]:
     return ytm.get_song(id) # type: ignore
 
-def album(id: str) -> ytmusic.AlbumDetails:
+def album(id: str) -> dict[str, Any]:
     return ytm.get_album(id) # type: ignore
 
 def playlist(id: str) -> dict[str, Any]:

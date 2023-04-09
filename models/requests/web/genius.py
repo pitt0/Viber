@@ -1,13 +1,14 @@
+from typing import Any
+
 from dotenv import load_dotenv
 from lyricsgenius.genius import Genius
 
-from resources.typings import genius as gl
 
 load_dotenv()
 genius = Genius()
 
 
-def search(query: str) -> gl.Result:
+def search(query: str) -> dict[str, Any]:
     return genius.search(query)
 
 

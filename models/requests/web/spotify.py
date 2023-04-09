@@ -3,7 +3,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 from dotenv import load_dotenv
-from resources.typings.results import spotify
 
 
 load_dotenv()
@@ -15,13 +14,13 @@ __all__ = (
     "from_url"
 )
 
-def search(query: str, limit: int = 5) -> list[spotify.TrackData]:
+def search(query: str, limit: int = 5) -> list[dict[str, Any]]:
     # NOTE: sp.search() could return None
     return (sp.search(query, limit=limit) or {"tracks": {"items": []}})["tracks"]["items"] 
 
 
 
-def track(id: str) -> spotify.TrackData:
+def track(id: str) -> dict[str, Any]:
     return sp.track(id) # type: ignore[valid-type]
 
 def playlist(id: str) -> dict[str, Any]:

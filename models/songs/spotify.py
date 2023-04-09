@@ -11,7 +11,6 @@ from models.requests.local import SpotifyRequest, SpotifyAlbumRequest
 from models.requests.web.spotify import track, search
 
 from resources import Time
-from resources.typings import spotify
 
 
 
@@ -20,7 +19,7 @@ class SpotifyArtist(Artist):
     id: str
 
     @classmethod
-    def create(cls, data: spotify.ArtistEntry) -> Self:
+    def create(cls, data: dict[str, Any]) -> Self:
         url = data['external_urls'].get('spotify', f"https://open.spotify.com/artist/{data['id']}")
         return cls(data['id'], data['name'], url)
 
@@ -43,7 +42,7 @@ class SpotifyAlbum(Album):
         return cls(id, name, artists, thumbnail, rd, f'https://open.spotify.com/album/{id}')
 
     @classmethod
-    def create(cls, data: spotify.AlbumEntry) -> Self:
+    def create(cls, data: dict[str, Any]) -> Self:
         artists = [SpotifyArtist.create(artist) for artist in data['artists']]
         return cls(data['id'], data['name'], artists, data['images'][0]['url'], data['release_date'], f"https://open.spotify.com/album/{data['id']}")
 
@@ -78,24 +77,24 @@ class SpotifySong(Track):
 
 
     @classmethod
-    def create(cls, data: spotify.TrackData) -> Self:
+    def create(cls, data: dict[str, Any]) -> Self:
         artists = [SpotifyArtist.create(artist) for artist in data['artists']]
         album = SpotifyAlbum.create(data['album']) # type: ignore
         return cls(data['id'], data['name'], artists, album, Time.from_ms(data['duration_ms']), f"https://open.spotify.com/track/{data['id']}")
 
     @classmethod
-    def get(cls, url: str) -> spotify.TrackData:
+    def get(cls, url: str) -> dict[str, Any]:
         _url = yarl.URL(url)
         return track(str(_url.name))
 
     @overload
     @classmethod
-    def search(cls, query: str, limit: Literal[1] = 1) -> spotify.TrackData:
+    def search(cls, query: str, limit: Literal[1] = 1) -> dict[str, Any]:
         ...
 
     @overload
     @classmethod
-    def search(cls, query: str, limit: int = 1) -> list[spotify.TrackData]:
+    def search(cls, query: str, limit: int = 1) -> list[dict[str, Any]]:
         ...
 
     @classmethod

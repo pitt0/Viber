@@ -1,5 +1,5 @@
 from resources.connections import Connection
-from resources.typings import MISSING
+from resources.types import MISSING
 
 
 class PlaylistRequest:
