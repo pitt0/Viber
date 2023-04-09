@@ -46,16 +46,17 @@ class PlaylistRequest:
     @staticmethod
     def add(playlist_id: int, song_id: int, user_id: int) -> None:
         with Connection() as cursor:
-            query = 'insert into playlist_songs (playlist_id, song_id, added_by) values (:p_id, :s_id, :u_id);'
-            params = {'p_id': playlist_id, 's_id': song_id, 'u_id': user_id}
+            # NOTE asserting song is already registered in database
+            query = 'insert into playlist_songs (playlist_id, song_id, added_by) values (?, ?, ?);'
+            params = (playlist_id, song_id, user_id)
 
             cursor.execute(query, params)
 
     @staticmethod
     def remove(playlist_id: int, song_id: int) -> None:
         with Connection() as cursor:
-            query = 'remove from playlist_songs where playlist_id = :p_id and song_id = :s_id;'
-            params = {'p_id': playlist_id, 's_id': song_id}
+            query = 'remove from playlist_songs where playlist_id = ? and song_id = ?;'
+            params = (playlist_id, song_id)
 
             cursor.execute(query, params)
 
@@ -64,18 +65,17 @@ class PlaylistRequest:
         with Connection() as cursor:
             query = (
                 'insert into playlists (playlist_title, target_id, author_id, privacy) '
-                'values (:name, :t_id, :auth, :p);'
-                'select rowid from playlists '
-                'where playlist_title = :name and target_id = :t_id and author_id = :auth;'
+                'values (?, ?, ?, ?) '
+                'returning rowid;'
             )
-            params = {'name': name, 't_id': target_id, 'auth': author_id, 'p': privacy}
+            params = (name, target_id, author_id, privacy)
 
             cursor.execute(query, params)
             rowid = cursor.fetchone()[0]
 
             query = (
                 'insert into playlist_owners (playlist_id, owner_id, permission_lvl) '
-                'values (:p_id, :auth, 4);'
+                'values (?, ?, 4);'
             )
-            cursor.execute(query, {'p_id': rowid, 'auth': author_id})
-            return rowid
+            cursor.execute(query, (rowid, author_id))
+        return rowid
