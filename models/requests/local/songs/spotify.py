@@ -10,93 +10,90 @@ class SpotifyRequest:
     def get(id: str) -> list[tuple[str, str, str, str, str]]:
         with Connection() as cursor:
             query = (
-                'select song_title, external_album_ids.spotify_id, artist_name, songs.duration, artists_ids.spotify_id as sp_art_id '
-                'from songs inner join external_ids on external_ids.song_id = songs.rowid '
-                'inner join external_album_ids on external_album_ids.album_id = songs.album_id '
+                'select song_title, aext.spotify_id, artist_name, songs.duration, artists_ids.spotify_id as sp_art_id '
+                'from songs '
+                'inner join external_ids as ext on ext.song_id = songs.rowid '
+                'inner join external_album_ids as aext on aext.album_id = songs.album_id '
                 'inner join song_authors on song_authors.song_id = songs.rowid '
                 'inner join artists_ids on song_authors.artist_id = artists_ids.rowid '
-                'where external_ids.spotify_id = ?;'
+                'where ext.spotify_id = ?;'
             )
             cursor.execute(query, (id,))
             return cursor.fetchall()
 
 
     @staticmethod
-    async def _update_song(id: str, title: str, album_id: str, duration: str) -> None:
-        async with (
-            aiosqlite.connect('database/music.sqlite') as db,
-            db.cursor() as cursor
-        ):    
-            await cursor.execute('select rowid from songs where song_title = ? and album_id = (select album_id from external_album_ids where spotify_id = ?);', (title, album_id))
-            if (song_id := await cursor.fetchone()) is not None:
-                print(f'Song `{title}` found in database, updating info.')
-                query = (
-                    'update external_ids set spotify_id = ? '
-                    'where song_id = ?;'
-                )
-                params = (id, song_id[0])
-                await cursor.execute(query, params)
-            else:
-                print(f'Song `{title}` not found in database, uploading to database.')
-                query = (
-                    'insert into songs '
-                    'values (?, (select album_id from external_album_ids where spotify_id = ?), ?);'
-                )
-                params = (title, album_id, duration)
-                await cursor.execute(query, params)
-                query = (
-                    'insert into external_ids (song_id, spotify_id) '
-                    'values ((select rowid from songs where song_title = ? and album_id = (select album_id from external_album_ids where spotify_id = ?)), ?);'
-                )
-                params = (title, album_id, id)
-                await cursor.execute(query, params)
-
-            print(f'Song `{title}` uploaded.')
-            await db.commit()
-
-    @staticmethod
-    async def _upload_artists(artists: Iterable) -> None:
+    async def _update_song(spotify_id: str, title: str, sp_album_id: str, duration: str) -> int:
         async with (
             aiosqlite.connect('database/music.sqlite') as db,
             db.cursor() as cursor
         ):
+            # selects the rowid of a songs, None if the song is not registered
+            query = (
+                'select songs.rowid from songs '
+                'inner join external_album_ids as ext on songs.album_id = ext.album_id '
+                'where song_title = ? and spotify_id = ?;'
+            )
+            await cursor.execute(query, (title, sp_album_id))
+            
+            if (song_id := await cursor.fetchone()) is not None:
+                await cursor.execute('update external_ids set spotify_id = ? where song_id = ?', (spotify_id, song_id[0]))
+
+            else:
+                # album is surely registered
+                await cursor.execute('select album_id from external_album_ids where spotify_id = ?;', (sp_album_id,))
+                album_id = (await cursor.fetchone())[0] # type: ignore
+
+                await cursor.execute('insert into songs values (?, ?, ?) returning rowid;', (title, album_id, duration))
+                song_id = await cursor.fetchone()
+                
+                await cursor.execute('inert into external_ids (song_id, spotify_id) values (?, ?);', (song_id[0], spotify_id)) # type: ignore
+
+            await db.commit()
+
+        return song_id[0] # type: ignore
+            
+
+    @staticmethod
+    async def _upload_artists(artists: Iterable) -> list[int]:
+        async with (
+            aiosqlite.connect('database/music.sqlite') as db,
+            db.cursor() as cursor
+        ):
+            ids = []
             for artist in artists:
-                print(f'Uploading artist {artist.name}')
                 await cursor.execute('select 1, spotify_id from artists_ids where artist_name = ?;', (artist.name,))
                 if (res := await cursor.fetchone()) is not None:
                     if res[1] is not None:
                         continue
-                    query = 'update artists_ids set spotify_id = ? where artist_name = ?;'
+                    query = 'update artists_ids set spotify_id = ? where artist_name = ? returning rowid;'
                     params = (artist.id, artist.name)
 
                 else:
-                    query = 'insert or ignore into artists_ids (artist_name, spotify_id) values (?, ?);'
+                    query = 'insert or ignore into artists_ids (artist_name, spotify_id) values (?, ?) returning rowid;'
                     params = (artist.name, artist.id)
 
                 await cursor.execute(query, params)
-            print('Arists uploaded.')
+                ids.append((await cursor.fetchone())[0]) # type: ignore
+
             await db.commit()
+        return ids
+
 
     @classmethod
     async def dump(cls, id: str, title: str, album_id: str, artists: Iterable, duration: str) -> int:
-        print(f'Dumping song `{title}`.')
-        await asyncio.gather(
+        results = await asyncio.gather(
             cls._update_song(id, title, album_id, duration),
             cls._upload_artists(artists)
         )
+
         async with (
             aiosqlite.connect('database/music.sqlite') as db,
             db.cursor() as cursor
         ):
-            for artist in artists:
-                print(artist)
-                await cursor.execute((
-                    'insert into song_authors '
-                    'values ((select rowid from songs where song_title = ? and album_id =  (select album_id from external_album_ids where spotify_id = ?)), (select rowid from artists_ids where spotify_id = ?));'
-                    ), 
-                    (title, album_id, artist.id))
+            for artist_id in results[1]:
+                await cursor.execute('insert into song_authors values (?, ?);', (results[0], artist_id))
 
             await db.commit()
 
-            await cursor.execute('select song_id from external_ids where spotify_id = ?', (id,))
-            return (await cursor.fetchone())[0] # type: ignore
+        return results[0]
