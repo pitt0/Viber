@@ -29,8 +29,8 @@ class SpotifyAlbum(Album):
 
     id: str
 
-    async def dump(self) -> None:
-        await SpotifyAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
+    async def dump(self) -> int:
+        return await SpotifyAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
 
     @classmethod
     def load(cls, id: str) -> Self:
@@ -61,8 +61,8 @@ class SpotifySong(Track):
         return super().embed.set_thumbnail(url=self.thumbnail)
     
     async def dump(self) -> LocalSong:
-        await self.album.dump()
-        rowid = await SpotifyRequest.dump(self.id, self.title, self.album.id, self.artists, self.duration)
+        album_id = await self.album.dump()
+        rowid = await SpotifyRequest.dump(self.id, self.title, album_id, self.artists, self.duration)
         return LocalSong.load(rowid)
 
     @classmethod

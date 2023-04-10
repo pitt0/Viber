@@ -23,35 +23,28 @@ class SpotifyRequest:
 
 
     @staticmethod
-    async def _update_song(spotify_id: str, title: str, sp_album_id: str, duration: str) -> int:
+    async def _update_song(spotify_id: str, title: str, album_id: int, duration: str) -> int:
         async with (
             aiosqlite.connect('database/music.sqlite') as db,
             db.cursor() as cursor
         ):
-            # selects the rowid of a songs, None if the song is not registered
             query = (
-                'select songs.rowid from songs '
-                'inner join external_album_ids as ext on songs.album_id = ext.album_id '
-                'where song_title = ? and spotify_id = ?;'
+                'insert into songs values (:t, :aid, :d) '
+                'on conflict update set duration = :d ' # NOTE forced update so it returns rowid
+                'returning rowid;'
             )
-            await cursor.execute(query, (title, sp_album_id))
+            await cursor.execute(query, {'t': title, 'aid': album_id, 'd': duration})
+            rowid = await cursor.fetchone()[0] # type: ignore[non-null]
             
-            if (song_id := await cursor.fetchone()) is not None:
-                await cursor.execute('update external_ids set spotify_id = ? where song_id = ?', (spotify_id, song_id[0]))
-
-            else:
-                # album is surely registered
-                await cursor.execute('select album_id from external_album_ids where spotify_id = ?;', (sp_album_id,))
-                album_id = (await cursor.fetchone())[0] # type: ignore
-
-                await cursor.execute('insert into songs values (?, ?, ?) returning rowid;', (title, album_id, duration))
-                song_id = await cursor.fetchone()
-                
-                await cursor.execute('inert into external_ids (song_id, spotify_id) values (?, ?);', (song_id[0], spotify_id)) # type: ignore
+            query = (
+                'insert into external_ids (song_id, spotify_id) values (:id, :sid) '
+                'on conflict update set spotify_id = :sid;'
+            )
+            await cursor.execute(query, {'id': rowid, 'sid': spotify_id})
 
             await db.commit()
 
-        return song_id[0] # type: ignore
+        return rowid
             
 
     @staticmethod
@@ -61,27 +54,21 @@ class SpotifyRequest:
             db.cursor() as cursor
         ):
             ids = []
+            query = (
+                'insert into artists_ids (artist_name, spotify_id) values (:n, :sid) '
+                'on conflict update set spotify_id = :sid '
+                'returning rowid;'
+            )
             for artist in artists:
-                await cursor.execute('select 1, spotify_id from artists_ids where artist_name = ?;', (artist.name,))
-                if (res := await cursor.fetchone()) is not None:
-                    if res[1] is not None:
-                        continue
-                    query = 'update artists_ids set spotify_id = ? where artist_name = ? returning rowid;'
-                    params = (artist.id, artist.name)
-
-                else:
-                    query = 'insert or ignore into artists_ids (artist_name, spotify_id) values (?, ?) returning rowid;'
-                    params = (artist.name, artist.id)
-
-                await cursor.execute(query, params)
-                ids.append((await cursor.fetchone())[0]) # type: ignore
+                await cursor.execute(query, {'n': artist.name, 'sid': artist.id})
+                ids.append((await cursor.fetchone())[0]) # type: ignore[non-null]
 
             await db.commit()
         return ids
 
 
     @classmethod
-    async def dump(cls, id: str, title: str, album_id: str, artists: Iterable, duration: str) -> int:
+    async def dump(cls, id: str, title: str, album_id: int, artists: Iterable, duration: str) -> int:
         results = await asyncio.gather(
             cls._update_song(id, title, album_id, duration),
             cls._upload_artists(artists)
@@ -92,7 +79,7 @@ class SpotifyRequest:
             db.cursor() as cursor
         ):
             for artist_id in results[1]:
-                await cursor.execute('insert into song_authors values (?, ?);', (results[0], artist_id))
+                await cursor.execute('insert or ignore into song_authors values (?, ?);', (results[0], artist_id))
 
             await db.commit()
 

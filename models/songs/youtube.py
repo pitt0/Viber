@@ -29,8 +29,8 @@ class YTMusicAlbum(Album):
 
     id: str
 
-    async def dump(self) -> None:
-        await YouTubeAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
+    async def dump(self) -> int:
+        return await YouTubeAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
 
     @classmethod
     def load(cls, id: str) -> Self:
@@ -65,15 +65,11 @@ class YTMusicSong(Track):
 
     @cached_property
     def embed(self) -> discord.Embed:
-        return discord.Embed(
-            title=self.title,
-            description=self._embed_artists,
-            color=discord.Colour.dark_purple()
-        ).set_thumbnail(url=self.thumbnail)
+        return super().embed.set_thumbnail(url=self.thumbnail)
     
     async def dump(self) -> LocalSong:
-        await self.album.dump()
-        rowid = await YouTubeRequest.dump(self.id, self.title, self.album.id, self.artists, self.duration)
+        album_id = await self.album.dump()
+        rowid = await YouTubeRequest.dump(self.id, self.title, album_id, self.artists, self.duration)
         return LocalSong.load(rowid)
     
     @classmethod

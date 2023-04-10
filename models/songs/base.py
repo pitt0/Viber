@@ -52,7 +52,7 @@ class Album:
         self.release_date = release_date
         self.url = url
 
-    async def dump(self) -> None:
+    async def dump(self) -> int:
         raise NotImplementedError
 
     @classmethod

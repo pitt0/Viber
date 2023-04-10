@@ -28,22 +28,21 @@ class YouTubeAlbumRequest:
             aiosqlite.connect('database/music.sqlite') as db,
             db.cursor() as cursor
         ):
-            await cursor.execute('select rowid, thumbnail from albums where album_name = ? and release_date = ?;', (name, release_date))
-            if (res := await cursor.fetchone()) is not None:
-                album_id = res[0]
-                if res[1] is None:
-                    await cursor.execute('update albums set thumbnail = ? where album_name = ? and release_date like ?;', (thumbnail, name, release_date))
+            query = (
+                'insert into albums values (:n, :rd, :t) '
+                'on collision do update set thumbnail = :t returning rowid;'
+            )
+            await cursor.execute(query, {'n': name, 'rd': release_date, 't': thumbnail})
+            rowid = await cursor.fetchone()[0] # type: ignore[non-null]
 
-                await cursor.execute('update external_album_ids set youtube_id = ? where album_id = ?;', (youtube_id, album_id))
-
-            else:
-                await cursor.execute('insert into albums values (?, ?, ?) returning rowid;', (name, release_date, thumbnail))
-                album_id = (await cursor.fetchone())[0] # type: ignore
-
-                await cursor.execute('insert into external_album_ids (album_id, youtube_id) values (?, ?);', (album_id, youtube_id))
+            query = (
+                'insert into external_album_ids (album_id, youtube_id) values (:id, :yid) '
+                'on collision do update set youtube_id = :yid;'
+            )
+            await cursor.execute(query, {'id': rowid, 'yid': youtube_id})
 
             await db.commit()
-        return album_id
+        return rowid
 
 
     @staticmethod
@@ -53,25 +52,22 @@ class YouTubeAlbumRequest:
             db.cursor() as cursor
         ):
             ids = []
+            query = (
+                'insert into artists_ids (artist_name, youtube_id) values (:n, :sid) '
+                'on collsion do update set youtube_id = :sid returning rowid;'
+            )
             for artist in artists:
-                params = {'name': artist.name, 'id': artist.id}
-                await cursor.execute('select 1, youtube_id from artists_ids where artist_name = :name;', params)
-                if (res := await cursor.fetchone()) is not None:
-                    ids.append(res[0])
-                    if res[1] is not None:
-                        continue
-                    await cursor.execute('update artists_ids set youtube_id = ? where artist_name = ?;', (artist.id, artist.name))
-
-                else:
-                    await cursor.execute('insert into artists_ids (artist_name, youtube_id) values (?, ?) returning rowid;', (artist.name, artist.id))
-                    ids.append((await cursor.fetchone())[0]) # type: ignore
+                params = {'n': artist.name, 'sid': artist.id}
+                
+                await cursor.execute(query, params)
+                ids.append((await cursor.fetchone())[0]) # type: ignore[non-null]
 
             await db.commit()
         return ids
 
     
     @classmethod
-    async def dump(cls, id: str, name: str, artists: Iterable, thumbnail: str, release_date: str) -> None:
+    async def dump(cls, id: str, name: str, artists: Iterable, thumbnail: str, release_date: str) -> int:
         results = await asyncio.gather(
             cls._upload_album(id, name, thumbnail, release_date),
             cls._upload_artists(artists)
@@ -85,3 +81,4 @@ class YouTubeAlbumRequest:
                 await cursor.execute(('insert or ignore into album_authors values (?, ?);'), (results[0], artist_id))
 
             await db.commit()
+        return results[0]
