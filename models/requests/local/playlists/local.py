@@ -79,3 +79,15 @@ class PlaylistRequest:
             )
             cursor.execute(query, (rowid, author_id))
         return rowid
+    
+    @staticmethod
+    def rename(id: int, name: str) -> None:
+        with Connection() as cursor:
+            cursor.execute('update playlists set playlist_title = ? where rowid = ?;', (name, id))
+
+    @staticmethod
+    def delete(id: int) -> None:
+        with Connection() as cursor:
+            cursor.execute('delete from playlists where rowid = ?;', (id,))
+            cursor.execute('delete from playlists_songs where playlist_id = ?;', (id,))
+            cursor.execute('delete from playlists_owners where playlist_id = ?;', (id,))
