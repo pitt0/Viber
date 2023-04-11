@@ -14,13 +14,13 @@ client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)
 
 
-def load_commands():
+def load_commands() -> None:
     tree.add_command(Playlists())
     tree.add_command(Songs(client))
     tree.add_command(Player(client))
 
 @client.event
-async def on_ready():
+async def on_ready() -> None:
     load_commands()
     await tree.sync()
     

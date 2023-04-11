@@ -2,6 +2,9 @@ from abc import abstractclassmethod
 from dataclasses import dataclass
 from typing import Self
 
+import calendar
+import datetime
+import dateutil.parser as dparser
 import discord
 
 from .paginator import Paginator
@@ -18,13 +21,18 @@ __all__ = (
 @dataclass
 class EmbedPlaylist:
     title: str
-    date: str
+    _date: datetime.datetime
+
+    @property
+    def date(self) -> str:
+        # NOTE D is long day (April 10, 2023), d is short (10/4/2023)
+        return f'<t:{calendar.timegm(self._date.timetuple())}:d>'
 
 
-class Lister(list[EmbedPlaylist], Paginator):
+class Lister(Paginator[EmbedPlaylist]):
 
     def __init__(self, title: str, *playlists) -> None:
-        super().__init__(playlists)
+        super().__init__(*playlists)
         self.title = title
 
     @abstractclassmethod
@@ -33,9 +41,9 @@ class Lister(list[EmbedPlaylist], Paginator):
         """
         ...
 
-    def paginate(self, title: str, page: int) -> discord.Embed:
+    def paginate(self, page: int) -> discord.Embed:
         return discord.Embed(
-            title=title,
+            title=self.title,
             description=f'Page {page} of {(len(self)//12)+1}'
         )
     
@@ -57,7 +65,7 @@ class GuildLister(Lister):
             cur.execute(query, (guild.id,))
             return cls(
                 f"{guild.name}'s Playlists", 
-                (EmbedPlaylist(*playlist) for playlist in cur.fetchall())
+                (EmbedPlaylist(playlist[0], dparser.parse(playlist[1])) for playlist in cur.fetchall())
             )
 
 
@@ -80,7 +88,7 @@ class UserLister(Lister):
             return cls(
                 f"{user.display_name}'s Playlists",
                 (
-                    EmbedPlaylist(*playlist) 
+                    EmbedPlaylist(playlist[0], dparser.parse(playlist[1])) 
                     for playlist in cur.fetchall() 
                     if show_private or playlist[2] > 0
                 )

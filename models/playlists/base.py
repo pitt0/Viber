@@ -5,7 +5,7 @@ import datetime
 import discord
 
 from .paginator import Paginator
-from .permissions import Owner, PlaylistPermission
+from .permissions import Owner, PermissionLevel
 from models.requests import PlaylistRequest
 from models.songs import S
 from resources import MISSING
@@ -14,11 +14,11 @@ from resources import MISSING
 __all__ = ('Base',)
 
 
-class Base(list[S], Paginator):
+class Base(Paginator[S]):
 
     __client: discord.Client
 
-    def __init__(self, id: int, title: str, target: discord.User | discord.Guild, author: discord.User, creation_date: datetime.datetime, privacy: PlaylistPermission) -> None:
+    def __init__(self, id: int, title: str, target: discord.User | discord.Guild, author: discord.User, creation_date: datetime.datetime, privacy: PermissionLevel) -> None:
         self.id = id
         self.title = title
         self.target = target
@@ -35,6 +35,9 @@ class Base(list[S], Paginator):
     def upload_date(self) -> str:
         return self.creation_date.strftime('%y-%m-%d %H:%M:%S')
 
+    def empty_embed(self) -> discord.Embed:
+        return super().empty_embed().set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
+
     def paginate(self, index: int) -> discord.Embed:
         _e = discord.Embed(
             title=self.title,
@@ -42,6 +45,7 @@ class Base(list[S], Paginator):
             color=discord.Color.blurple()
         )
         _e.set_footer(text=f"Page {index} of {(len(self)//12)+1}")
+        _e.set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
 
         for song in self[(index - 1) * 12 : index*12]:
             _e.add_field(**song.as_field)
@@ -51,20 +55,25 @@ class Base(list[S], Paginator):
         return super().embeds(lambda song: song.as_field)
 
 
-    async def dump(self) -> None:
+    async def dump(self, interaction: discord.Interaction) -> None:
         ...
 
     @classmethod
     async def load(cls, interaction: discord.Interaction, id: int = MISSING, title: str = MISSING, target_id: int = MISSING) -> Self:
         ...
     
-    @property
+    async def rename(self, name: str) -> None:
+        PlaylistRequest.rename(self.id, name)
+    
+    async def delete(self) -> None:
+        PlaylistRequest.delete(self.id)
+
     async def owners(self) -> list[Owner]:
         data = PlaylistRequest.owners(self.id)
         return [
             Owner(
                 await self.__client.fetch_user(owner[0]),
-                PlaylistPermission(owner[1])
+                PermissionLevel(owner[1])
             )
             for owner in data
         ]

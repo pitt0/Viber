@@ -1,32 +1,76 @@
 import discord
 
-from .generic import MenuView
+from .generic import MenuView, ResponseView
 from .modals import *
-from models import Playlist
+from models import LocalPlaylist
+from models import PermissionLevel
 
 
 __all__ = (
     "PlaylistPaginator",
-    "PlaylistSettings",
-    "PlaylistAdvancedSettings",
-    "SongManager",
+    "PlaylistSettings"
 )
 
 
 class PlaylistPaginator(MenuView):
 
-    def __init__(self, playlist: Playlist):
-        super().__init__(playlist.embeds)
+    def __init__(self, playlist: LocalPlaylist) -> None:
+        super().__init__(playlist.embeds())
         self.playlist = playlist
+        if len(self.playlist) == 0:
+            self.remove_song.disabled = True
 
-    @discord.ui.button(emoji="⚙️", style=discord.ButtonStyle.blurple)
-    async def manage_playlist(self, interaction: discord.Interaction, _):
+    async def has_permission(self, interaction: discord.Interaction, permission_lvl: int) -> bool:
+        if self.playlist.privacy.value < permission_lvl:
+            if not await self.playlist.is_owner(interaction.user): # type: ignore
+                await interaction.response.send_message('You cannot complete this action as this playlist is view-only to non owners.', ephemeral=True)
+                return False
+            if not (await self.playlist.owner_level(interaction.user)).value < permission_lvl: # type: ignore
+                await interaction.response.send_message("You cannot complete this action as you don't have the right permissions.", ephemeral=True)
+                return False
+        return True
+    
+    async def update(self, interaction: discord.Interaction) -> None:
+        if len(self.playlist) == 0:
+            self.remove_song.disabled = True
+        else:
+            self.remove_song.disabled = False
+
+        await self.edit_or_respond(interaction, view=self)
+
+    @discord.ui.button(emoji='➕', style=discord.ButtonStyle.blurple, row=2)
+    async def add_song(self, interaction: discord.Interaction, _) -> None:
+        if not await self.has_permission(interaction, 2):
+            return
+
+        modal = AddSong(self.playlist)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        await self.update(interaction)
+
+    @discord.ui.button(emoji='➖', style=discord.ButtonStyle.blurple, row=2)
+    async def remove_song(self, interaction: discord.Interaction, _) -> None:
+        if not await self.has_permission(interaction, 3):
+            return
+        
+        modal = RemoveSong(self.playlist)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        await self.update(interaction)
+
+    @discord.ui.button(emoji="⚙️", style=discord.ButtonStyle.blurple, row=2)
+    async def manage_playlist(self, interaction: discord.Interaction, _) -> None:
+        if not await self.has_permission(interaction, 4):
+            return
+        
         view = PlaylistSettings(self.playlist)
-        await self.respond(interaction, view=view)
+        await self.edit_or_respond(interaction, view=view)
         await view.wait()
         try:
-            view = PlaylistPaginator(self.playlist)
-            await interaction.followup.edit_message(interaction.message.id, view=view) # type: ignore
+            # view = PlaylistPaginator(self.playlist)
+            # await interaction.followup.edit_message(interaction.message.id, view=view) # type: ignore
+            # TODO if this does not work try self.stop()
+            await self.update(interaction)
         except discord.HTTPException:
             pass
 
@@ -34,7 +78,7 @@ class PlaylistPaginator(MenuView):
 
 class Settings(discord.ui.View):
 
-    def __init__(self, playlist: Playlist):
+    def __init__(self, playlist: LocalPlaylist) -> None:
         super().__init__()
         self.playlist = playlist
 
@@ -47,67 +91,14 @@ class Settings(discord.ui.View):
         self.stop()
 
 
-class PlaylistSettings(Settings):
+class PlaylistSettings(Settings, ResponseView):
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.data["custom_id"] == "songs": # type: ignore
-            return True
-            
-        if interaction.user != self.playlist.author:
-            await interaction.response.send_message("You cannot perform this action, only the author of the playlist can.", ephemeral=True)
-            return False
-        
-        return True
-
-    @discord.ui.button(emoji="⚙️", custom_id="advanced")
+    @discord.ui.button(emoji="⚙️", custom_id="permissions")
     async def advanced(self, interaction: discord.Interaction, _) -> None:
-        view = PlaylistAdvancedSettings(self.playlist)
-        await interaction.response.edit_message(view=view)
+        view = PermissionChanger(self.playlist)
+        await self.edit_or_respond(interaction, view=view)
         await view.wait()
-        self.stop()
-
-    @discord.ui.button(emoji="🎶", custom_id="songs")
-    async def songs(self, interaction: discord.Interaction, _) -> None:
-        if self.playlist.private:
-            while True:
-                modal = AskPassword(self.playlist)
-                await interaction.response.send_modal(modal)
-                await modal.wait()
-                if modal.result:
-                    break
-        view = SongManager(self.playlist)
-        await interaction.response.edit_message(view=view)
-        await view.wait()
-        self.stop()
-
-    @discord.ui.button(emoji="❌", custom_id="delete") # style = discord.ButtonStyle.red
-    async def delete(self, interaction: discord.Interaction, _) -> None:
-        modal = DeletePlaylist(self.playlist)
-        await interaction.response.send_modal(modal)
-        await interaction.message.delete() # type: ignore
-        self.stop()
-
-        
-class PlaylistAdvancedSettings(Settings):
-
-    def __init__(self, playlist: Playlist):
-        super().__init__(playlist)
-
-        if self.playlist.private:
-            self.edit_state.emoji = "🔓"
-        else:
-            self.edit_state.emoji = "🔒"
-
-    @discord.ui.button() # emoji will be added in __init__
-    async def edit_state(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        if button.emoji == "🔒":
-            modal = LockPlaylist(self.playlist, interaction.message) # type: ignore
-        else:
-            modal = UnlockPlaylist(self.playlist)
-
-        await interaction.response.send_modal(modal)
-        await modal.wait()
-        self.stop()
+        ...
 
     @discord.ui.button(emoji="🖋️")
     async def rename(self, interaction: discord.Interaction, _) -> None:
@@ -120,17 +111,18 @@ class PlaylistAdvancedSettings(Settings):
         await interaction.followup.edit_message(message.id, embed=embed) # type: ignore
         self.stop()
 
-
-class SongManager(Settings):
-
-    @discord.ui.button(emoji="➕")
-    async def add_song(self, interaction: discord.Interaction, _) -> None:
-        modal = AddSong(self.playlist)
+    @discord.ui.button(emoji="❌", custom_id="delete") # style = discord.ButtonStyle.red
+    async def delete(self, interaction: discord.Interaction, _) -> None:
+        modal = DeletePlaylist(self.playlist)
         await interaction.response.send_modal(modal)
-        await modal.wait()
+        await interaction.message.delete() # type: ignore
+        self.stop()
 
-    @discord.ui.button(emoji="➖")
-    async def remove_song(self, interaction: discord.Interaction, _) -> None:
-        modal = RemoveSong(self.playlist)
-        await interaction.response.send_modal(modal)
-        await modal.wait()
+
+class PermissionChanger(Settings):
+    
+    @discord.ui.select(options=[discord.SelectOption(label=level.name) for level in PermissionLevel])
+    async def set_permission(self, interaction: discord.Interaction, select: discord.ui.Select) -> None:
+        await interaction.response.defer()
+        print(interaction.data)
+        print(dir(select))

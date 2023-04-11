@@ -3,7 +3,7 @@ from typing import Self, Type
 
 import discord
 
-from models.songs import S
+from models.songs import S, LocalSong
 from resources import NotFound
 from ui import MenuView
 
@@ -30,7 +30,7 @@ class SongsChoice(List[S]):
             raise NotFound(f"Searching `{reference}` returned no result.")
         return self
 
-    async def choose(self, interaction: discord.Interaction) -> S:
+    async def choose(self, interaction: discord.Interaction) -> LocalSong:
         view = VSongsChoice(self)
         if interaction.response.is_done():
             await interaction.followup.send(embed=self.first.embed, view=view)
@@ -43,11 +43,11 @@ class SongsChoice(List[S]):
 
 class VSongsChoice(MenuView):
 
-    def __init__(self, songs: SongsChoice) -> None:
+    def __init__(self, songs: SongsChoice[S]) -> None:
         embeds = songs.select(lambda song: song.embed)
         super().__init__(embeds)
         self.songs = songs
-        self.current = songs.first.embed
+        self._current = songs.first.embed
         self.index = 0
 
     @discord.ui.button(label="✓", style=discord.ButtonStyle.green)

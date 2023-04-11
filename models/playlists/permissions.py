@@ -4,17 +4,24 @@ from enum import Enum
 import discord
 
 
-__all__ = ('Owner', 'PlaylistPermission')
+__all__ = ('Owner', 'PermissionLevel')
 
 
-class PlaylistPermission(Enum):
+class PermissionLevel(Enum):
     Private = 0
-    View = 1
-    Add = 2
-    Remove = 3
+    Viewable = 1
+    Addable = 2
+    Removeable = 3
     Admin = 4
 
 @dataclass
 class Owner:
     user: discord.User
-    permission: PlaylistPermission
+    permission: PermissionLevel
+
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, discord.abc.Snowflake):
+            return self.user.id == __o.id
+        elif isinstance(__o, self.__class__):
+            return self.user == __o.user
+        return False
