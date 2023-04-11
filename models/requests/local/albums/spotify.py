@@ -29,14 +29,14 @@ class SpotifyAlbumRequest:
         ):
             query = (
                 'insert into albums values (:n, :rd, :t) '
-                'on collision do update set thumbnail = :t returning rowid;'
+                'on conflict do update set thumbnail = :t returning rowid;'
             )
             await cursor.execute(query, {'n': name, 'rd': release_date, 't': thumbnail})
-            rowid = await cursor.fetchone()[0] # type: ignore[non-null]
+            rowid = (await cursor.fetchone())[0] # type: ignore[non-null]
 
             query = (
                 'insert into external_album_ids (album_id, spotify_id) values (:id, :sid) '
-                'on collision do update set spotify_id = :sid;'
+                'on conflict do update set spotify_id = :sid;'
             )
             await cursor.execute(query, {'id': rowid, 'sid': spotify_id})
 
@@ -53,7 +53,7 @@ class SpotifyAlbumRequest:
             ids = []
             query = (
                 'insert into artists_ids (artist_name, spotify_id) values (:n, :sid) '
-                'on collsion do update set spotify_id = :sid returning rowid;'
+                'on conflict do update set spotify_id = :sid returning rowid;'
             )
             for artist in artists:
                 params = {'n': artist.name, 'sid': artist.id}

@@ -30,15 +30,15 @@ class YouTubeRequest:
         ):
             query = (
                 'insert into songs values (:t, :aid, :d) '
-                'on conflict update set duration = :d ' # NOTE forced update so it returns rowid
+                'on conflict do update set duration = :d ' # NOTE forced update so it returns rowid
                 'returning rowid;'
             )
             await cursor.execute(query, {'t': title, 'aid': album_id, 'd': duration})
-            rowid = await cursor.fetchone()[0] # type: ignore[non-null]
+            rowid = (await cursor.fetchone())[0] # type: ignore[non-null]
             
             query = (
                 'insert into external_ids (song_id, youtube_id) values (:id, :yid) '
-                'on conflict update set youtube_id = :yid;'
+                'on conflict do update set youtube_id = :yid;'
             )
             await cursor.execute(query, {'id': rowid, 'yid': youtube_id})
 
@@ -56,7 +56,7 @@ class YouTubeRequest:
             ids = []
             query = (
                 'insert into artists_ids (artist_name, youtube_id) values (:n, :yid) '
-                'on conflict update set youtube_id = :yid '
+                'on conflict do update set youtube_id = :yid '
                 'returning rowid;'
             )
             for artist in artists:

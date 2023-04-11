@@ -30,15 +30,15 @@ class SpotifyRequest:
         ):
             query = (
                 'insert into songs values (:t, :aid, :d) '
-                'on conflict update set duration = :d ' # NOTE forced update so it returns rowid
+                'on conflict do update set duration = :d ' # NOTE forced update so it returns rowid
                 'returning rowid;'
             )
             await cursor.execute(query, {'t': title, 'aid': album_id, 'd': duration})
-            rowid = await cursor.fetchone()[0] # type: ignore[non-null]
+            rowid = (await cursor.fetchone())[0] # type: ignore[non-null]
             
             query = (
                 'insert into external_ids (song_id, spotify_id) values (:id, :sid) '
-                'on conflict update set spotify_id = :sid;'
+                'on conflict do update set spotify_id = :sid;'
             )
             await cursor.execute(query, {'id': rowid, 'sid': spotify_id})
 
@@ -56,7 +56,7 @@ class SpotifyRequest:
             ids = []
             query = (
                 'insert into artists_ids (artist_name, spotify_id) values (:n, :sid) '
-                'on conflict update set spotify_id = :sid '
+                'on conflict do update set spotify_id = :sid '
                 'returning rowid;'
             )
             for artist in artists:
