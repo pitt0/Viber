@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Sequence, TypeVar
+from typing import Callable, TypeVar
 
 import discord
 

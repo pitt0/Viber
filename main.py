@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 
 # slash groups
-from groups.playlists import Playlists
+from groups.playlists import Playlists, Advices, Favourites
 from groups.songs import Songs
 from groups.players import Player
 
@@ -16,6 +16,8 @@ tree = app_commands.CommandTree(client)
 
 def load_commands() -> None:
     tree.add_command(Playlists())
+    tree.add_command(Advices())
+    tree.add_command(Favourites())
     tree.add_command(Songs(client))
     tree.add_command(Player(client))
 

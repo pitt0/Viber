@@ -32,6 +32,9 @@ class Artist:
         self.name = name
         self.url = url
 
+    def __str__(self) -> str:
+        return self.name
+
     @cached_property
     def href(self) -> str:
         return f"[{self.name}]({self.url})" if self.url else self.name

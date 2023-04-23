@@ -3,7 +3,6 @@ from typing import Self
 
 import discord
 
-from .generic import WaitableModal
 from models import LocalPlaylist, SpotifySong
 from models import SongsChoice
 from resources import SearchingException
@@ -81,12 +80,14 @@ class RemoveSong(discord.ui.Modal):
             await interaction.response.send_message(f'You have to insert a number between 1 and {len(self.playlist)}', ephemeral=True)
             return
         self.playlist.remove_song(song)
-        await interaction.response.send_message(f"`{song}` has been removed from {self.playlist.title}.")
+        await interaction.followup.send(f"`{song}` has been removed from `{self.playlist.title}`.", ephemeral=True)
+        self.stop()
 
 
 class DeletePlaylist(discord.ui.Modal):
 
     children: list[TextInput[Self]]
+    result: bool
 
     def __init__(self, playlist: LocalPlaylist) -> None:
         super().__init__(title="Insert Title to Complete")
@@ -102,12 +103,15 @@ class DeletePlaylist(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if self.children[0].value != self.playlist.title:
             await interaction.response.send_message("Action cancelled.", ephemeral=True)
+            self.result = False
         else:
             await self.playlist.delete()
-            await interaction.response.send_message(f"Action completed! {self.playlist.title} has been deleted.")
+            await interaction.response.send_message(f"Action completed! `{self.playlist.title}` has been deleted.")
+            self.result = True
+        self.stop()
 
 
-class RenamePlaylist(WaitableModal):
+class RenamePlaylist(discord.ui.Modal):
 
     children: list[TextInput[Self]]
     result: str
@@ -115,10 +119,10 @@ class RenamePlaylist(WaitableModal):
     def __init__(self, playlist: LocalPlaylist) -> None:
         super().__init__(title="Rename the playlist")
         self.playlist = playlist
-        self.add_item(TextInput(label="New Name"))
+        self.add_item(TextInput(label="New Name", default=playlist.title))
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         self.result = self.children[0].value
         await self.playlist.rename(self.result)
-        await interaction.response.send_message(f"Action completed! You renamed the playlist to {self.playlist.title}.")
+        await interaction.response.send_message(f"Action completed! You renamed the playlist to `{self.playlist.title}`.", ephemeral=True)
         self.stop()

@@ -47,8 +47,6 @@ class Base(Paginator[S]):
         _e.set_footer(text=f"Page {index} of {(len(self)//12)+1}")
         _e.set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
 
-        for song in self[(index - 1) * 12 : index*12]:
-            _e.add_field(**song.as_field)
         return _e
 
     def embeds(self) -> list[discord.Embed]:
@@ -63,6 +61,7 @@ class Base(Paginator[S]):
         ...
     
     async def rename(self, name: str) -> None:
+        self.title = name
         PlaylistRequest.rename(self.id, name)
     
     async def delete(self) -> None:

@@ -55,7 +55,7 @@ class PlaylistRequest:
     @staticmethod
     def remove(playlist_id: int, song_id: int) -> None:
         with Connection() as cursor:
-            query = 'remove from playlist_songs where playlist_id = ? and song_id = ?;'
+            query = 'delete from playlist_songs where playlist_id = ? and song_id = ?;'
             params = (playlist_id, song_id)
 
             cursor.execute(query, params)
@@ -89,5 +89,5 @@ class PlaylistRequest:
     def delete(id: int) -> None:
         with Connection() as cursor:
             cursor.execute('delete from playlists where rowid = ?;', (id,))
-            cursor.execute('delete from playlists_songs where playlist_id = ?;', (id,))
-            cursor.execute('delete from playlists_owners where playlist_id = ?;', (id,))
+            cursor.execute('delete from playlist_songs where playlist_id = ?;', (id,))
+            cursor.execute('delete from playlist_owners where playlist_id = ?;', (id,))

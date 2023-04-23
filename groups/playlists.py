@@ -79,8 +79,6 @@ class Playlists(slash.Group):
     async def new_playlist(self, interaction: discord.Interaction) -> None:
         modal = MNewPlaylist()
         await interaction.response.send_modal(modal)
-        
-        # await modal.wait()
 
 
     @slash.command(name='owner', description='Take action on a playlist owner.')

@@ -56,7 +56,7 @@ class LocalPlaylist(Base[LocalSong]):
         
     async def owner_level(self, user: discord.User) -> PermissionLevel:
         with Connection() as cursor:
-            cursor.execute('select owner_lvl from playlist_owners where playlist_id = ? and owner_id = ?;', (self.id, user.id))
+            cursor.execute('select permission_lvl from playlist_owners where playlist_id = ? and owner_id = ?;', (self.id, user.id))
             return PermissionLevel((cursor.fetchone() or [0])[0])
         
     async def set_owner(self, user: discord.Member | discord.User, permission_level: PermissionLevel) -> None:
@@ -68,3 +68,12 @@ class LocalPlaylist(Base[LocalSong]):
                 'set permission_lvl = :plvl;'
             )
             cursor.execute(query, {'pid': self.id, 'oid': user.id, 'plvl': permission_level.value})
+
+    async def set_privacy(self, permission_level: PermissionLevel) -> None:
+        with Connection() as cursor:
+            query = (
+                'update playlists '
+                'set privacy = ? '
+                'where rowid = ?;'
+            )
+            cursor.execute(query, (permission_level.value, self.id))
