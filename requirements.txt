@@ -11,4 +11,6 @@ yt-dlp
 PyNaCl
 
 # system
+aiosqlite
+python-dateutil
 python-dotenv
