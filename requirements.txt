@@ -11,5 +11,4 @@ yt-dlp
 PyNaCl
 
 # system
-list_ext
 python-dotenv
