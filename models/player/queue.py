@@ -1,4 +1,3 @@
-from list_ext import List, LoopingList
 from typing import Any
 from typing import overload
 
@@ -11,7 +10,7 @@ from models.typing import USER
 
 SONG_ENTRY = tuple[Track, discord.FFmpegOpusAudio, USER]
 
-class Queue(LoopingList[SONG_ENTRY]):
+class Queue(list[SONG_ENTRY]):
 
     index: int
 
@@ -24,8 +23,8 @@ class Queue(LoopingList[SONG_ENTRY]):
         self.index = 0
 
     @property
-    def left(self) -> List[SONG_ENTRY]:
-        return List(self[self.index :])
+    def left(self) -> list[SONG_ENTRY]:
+        return list(self[self.index :])
 
     @property
     def looping(self) -> bool:
@@ -45,6 +44,10 @@ class Queue(LoopingList[SONG_ENTRY]):
     @property
     def song_loop(self) -> bool:
         return self.loop == 2
+    
+    @property
+    def capacity(self) -> int:
+        return len(self) - 1
 
     @overload
     def __getitem__(self, key: int) -> SONG_ENTRY:
@@ -57,7 +60,7 @@ class Queue(LoopingList[SONG_ENTRY]):
     def __getitem__(self, key) -> Any:
         if isinstance(key, int):
             if self.loop:
-                if self.index > self.capacity:
+                while self.index > self.capacity:
                     key -= self.capacity
             return self[key]
 
@@ -96,4 +99,4 @@ class Queue(LoopingList[SONG_ENTRY]):
         return self.index < self.capacity and not self.song_loop
 
     def done(self) -> bool:
-        return not self.looping and self.index == self.length
+        return not self.looping and self.index == len(self)

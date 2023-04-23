@@ -1,4 +1,3 @@
-from list_ext import List
 from typing import Self, Type
 
 import discord
@@ -11,7 +10,7 @@ from ui import MenuView
 __all__ = ("SongsChoice",)
 
 
-class SongsChoice(List[S]):
+class SongsChoice(list[S]):
 
     reference: str
 
@@ -24,7 +23,7 @@ class SongsChoice(List[S]):
     @classmethod
     def search(cls, reference: str, purpose: Type[S], limit: int = 5) -> Self:
         self = cls(reference, purpose, limit)
-        if self.empty:
+        if len(self) == 0:
             # It's ok for the moment, if error tracking does not work:
             # use `if self.empty` out of this method
             raise NotFound(f"Searching `{reference}` returned no result.")
@@ -33,9 +32,9 @@ class SongsChoice(List[S]):
     async def choose(self, interaction: discord.Interaction) -> LocalSong:
         view = VSongsChoice(self)
         if interaction.response.is_done():
-            await interaction.followup.send(embed=self.first.embed, view=view)
+            await interaction.followup.send(embed=self[0].embed, view=view)
         else:
-            await interaction.response.send_message(embed=self.first.embed, view=view)
+            await interaction.response.send_message(embed=self[0].embed, view=view)
         await view.wait()
         return await view.song.dump()
 
@@ -44,10 +43,10 @@ class SongsChoice(List[S]):
 class VSongsChoice(MenuView):
 
     def __init__(self, songs: SongsChoice[S]) -> None:
-        embeds = songs.select(lambda song: song.embed)
+        embeds = [song.embed for song in songs]
         super().__init__(embeds)
         self.songs = songs
-        self._current = songs.first.embed
+        self._current = songs[0].embed
         self.index = 0
 
     @discord.ui.button(label="✓", style=discord.ButtonStyle.green)
