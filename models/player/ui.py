@@ -21,7 +21,8 @@ class PlayerUI(discord.ui.View):
         self.__player = player
         self.message = None # type: ignore
 
-    def destroy(self) -> None:
+    async def destroy(self) -> None:
+        await self.message.delete()
         self.message = None # type: ignore
 
     @property

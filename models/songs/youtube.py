@@ -43,10 +43,9 @@ class YTMusicAlbum(Album):
 
     @classmethod
     def create(cls, data: dict[str, Any]) -> Self:
-        partial = search(data['name'], 'albums', limit=1)[0]
-        complete = album(partial['browseId'])
+        complete = album(data['id'])
         artists = [YTMusicArtist.create(art) for art in complete['artists']]
-        return cls(partial['browseId'], complete['title'], artists, complete['thumbnails'][0]['url'], complete['year'], f"https://music.youtube.com/playlist?list={complete['audioPlaylistId']}")
+        return cls(data['id'], complete['title'], artists, complete['thumbnails'][0]['url'], complete['year'], f"https://music.youtube.com/playlist?list={complete['audioPlaylistId']}")
 
 
 

@@ -8,7 +8,7 @@ from models.songs import Track
 from models.typing import USER
 
 
-SONG_ENTRY = tuple[Track, discord.FFmpegOpusAudio, USER]
+SONG_ENTRY = tuple[Track, USER]
 
 class Queue(list[SONG_ENTRY]):
 
@@ -36,7 +36,7 @@ class Queue(list[SONG_ENTRY]):
             title="Queue",
             color=discord.Color.orange()
         )
-        for song, _, _ in self.left:
+        for song, _ in self.left:
             embed.add_field(**song.as_field)
         
         return embed
@@ -62,9 +62,8 @@ class Queue(list[SONG_ENTRY]):
             if self.loop:
                 while self.index > self.capacity:
                     key -= self.capacity
-            return self[key]
 
-        return self[key]
+        return super().__getitem__(key)
 
 
     def previous(self) -> None:

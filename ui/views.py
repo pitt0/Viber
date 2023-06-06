@@ -126,7 +126,7 @@ class PermissionChanger(Settings):
 
     level: int
     
-    @discord.ui.select(placeholder="Select playlist's general permission level", options=[discord.SelectOption(label=level.name, value=level.value) for level in PermissionLevel])
+    @discord.ui.select(placeholder="Select playlist's general permission level", options=[discord.SelectOption(label=level.name, value=level.value) for level in PermissionLevel]) # type: ignore[valid-type]
     async def set_permission(self, interaction: discord.Interaction, _) -> None:
         await interaction.response.defer()
         self.level = int(interaction.data['values'][0]) # type: ignore[valid-type]

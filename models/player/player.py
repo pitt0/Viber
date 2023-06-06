@@ -69,7 +69,7 @@ class MusicPlayer:
 
     @property
     def embed(self) -> discord.Embed:
-        song, _, requester = self.queue.current
+        song, requester = self.queue.current
         _e = song.embed
         _e.color = discord.Colour.blue()
         _e.set_footer(text=f"Queued by {requester.display_name}", icon_url=requester.display_avatar)
@@ -79,13 +79,13 @@ class MusicPlayer:
     async def get_source(self, url: str) -> discord.FFmpegOpusAudio:
         return await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
 
-    async def __update_player(self, update: bool = False) -> None:
+    async def __update_player(self, update: bool = True) -> None:
         self.player.previous.disabled = not self.queue.can_previous()
         self.player.next.disabled = not self.queue.can_next()
         self.player.shuffle.disabled = not self.queue.can_shuffle()
 
         if update:
-            await self.player.message.edit(view=self.player)
+           await self.player.message.edit(view=self.player)
 
     async def __reset(self) -> None:
         await self.voice_client.disconnect()
@@ -170,8 +170,7 @@ class MusicPlayer:
                     print("Resumed.")
 
     async def add_song(self, song: Track, requester: USER) -> None:
-        source = await self.get_source(song.source)
-        self.queue.append((song, source, requester))
+        self.queue.append((song, requester))
         if self.sleeping:
             await self.play()
         else:
@@ -182,13 +181,12 @@ class MusicPlayer:
             self.player = PlayerUI(self)
 
         while not self.queue.done():
-            # NOTE: Preferred to use a while so if a song is added or removed the queue doesn't skip anything
 
-            _, source, _ = self.queue.current
+            source = await self.get_source(self.queue.current[0].source)
             self.__prepare() # Creates the task
             self.voice_client.play(source, after=self.__next)
 
-            await self.__update_player()
+            await self.__update_player(update=False)
             if not self.player.message:
                 self.player.message = await self.channel.send(embed=self.embed, view=self.player)
             else:
@@ -210,5 +208,5 @@ class MusicPlayer:
         self.voice_client.stop()
         if force:
             self.queue = Queue()
-            self.player.destroy()
+            await self.player.destroy()
             self.__stop()
