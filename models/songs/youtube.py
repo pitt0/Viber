@@ -7,8 +7,9 @@ import yarl
 
 from .base import *
 from .local import LocalSong
-from models.requests.local import YouTubeRequest, YouTubeAlbumRequest
-from models.requests.web.youtube import item, album, search, source
+from api.local.albums import dump as album_dump
+from api.local.songs import dump as song_dump
+from api.web.youtube import item, album, search, source
 
 
 
@@ -30,16 +31,7 @@ class YTMusicAlbum(Album):
     id: str
 
     async def dump(self) -> int:
-        return await YouTubeAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
-
-    @classmethod
-    def load(cls, id: str) -> Self:
-        artists = []
-        data = YouTubeAlbumRequest.get(id)
-        for _, name, _, _, artst_id in data:
-            artists.append(YTMusicArtist(artst_id, name))
-        name, _, rd, thumbnail, _ = data[0]
-        return cls(id, name, artists, thumbnail, rd, f'https://music.youtube.com/playlist?list={id}')
+        return await album_dump(self.id, 'youtube', self.authors, name=self.name, thumbnail=self.thumbnail, release_date=self.release_date)
 
     @classmethod
     def create(cls, data: dict[str, Any]) -> Self:
@@ -68,25 +60,15 @@ class YTMusicSong(Track):
     
     async def dump(self) -> LocalSong:
         album_id = await self.album.dump()
-        rowid = await YouTubeRequest.dump(self.id, self.title, album_id, self.artists, self.duration)
+        rowid = await song_dump(self.id, 'youtube', self.artists, title=self.title, album_id=album_id, duration=self.duration)
         return LocalSong.load(rowid)
-    
-    @classmethod
-    def load(cls, id: str) -> Self:
-        artists = []
-        data = YouTubeRequest.get(id)
-        for _, _, name, _, artst_id in data:
-            artists.append(YTMusicArtist(artst_id, name))
-        title, album_id, _, duration, _ = data[0]
-        album = YTMusicAlbum.load(album_id)
-        return cls(id, title, artists, album, duration, f'https://music.youtube.com/watch?v={id}')
 
     @classmethod
     def create(cls, data: dict[str, Any]) -> Self:
         artists = [YTMusicArtist.create(art) for art in data['artists']]
         album = YTMusicAlbum.create(data['album'])
         return cls(data['videoId'], data['title'], artists, album, data['duration'], f"https://music.youtube.com/watch?v={data['videoId']}")
-    
+
     @classmethod
     def get(cls, url: str) -> dict[str, Any]:
         _url = yarl.URL(url)

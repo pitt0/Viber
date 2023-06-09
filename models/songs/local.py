@@ -2,7 +2,8 @@ from functools import cached_property
 from typing import Self
 
 from .base import Artist, Album, Track
-from models.requests.local import LocalAlbumRequest, SongRequest
+from api.local.albums import get as get_album
+from api.local.songs import get as get_song
 
         
 
@@ -13,7 +14,7 @@ class LocalAlbum(Album):
     @classmethod
     def load(cls, id: int) -> Self:
         artists = []
-        data = LocalAlbumRequest.get(id)
+        data = get_album(id)
         for _, _, name, _, _, _, arts_id in data:
             artists.append(Artist(arts_id, name, f'https://open.spotify.com/artist/{arts_id}'))
         id, name, _, rd, thumbnail, sp_id, _ = data[0]
@@ -32,7 +33,7 @@ class LocalSong(Track):
     @classmethod
     def load(cls, rowid: int) -> Self:
         artists = []
-        data = SongRequest.get(rowid)
+        data = get_song(rowid)
         
         for  _, _, name, _, _, id in data:
             artists.append(Artist(id, name, f'https://open.spotify.com/artist/{id}'))

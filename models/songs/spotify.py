@@ -7,9 +7,9 @@ import yarl
 
 from .base import *
 from .local import LocalSong
-from models.requests.local import SpotifyRequest, SpotifyAlbumRequest
-from models.requests.web.spotify import track, search
-
+from api.local.albums import dump as album_dump
+from api.local.songs import dump as song_dump
+from api.web.spotify import track, search
 from resources import Time
 
 
@@ -30,16 +30,7 @@ class SpotifyAlbum(Album):
     id: str
 
     async def dump(self) -> int:
-        return await SpotifyAlbumRequest.dump(self.id, self.name, self.authors, self.thumbnail, self.release_date)
-
-    @classmethod
-    def load(cls, id: str) -> Self:
-        artists = []
-        data = SpotifyRequest.get(id)
-        for _, name, _, _, artst_id in data:
-            artists.append(Artist(artst_id, name, f'https://open.spotify.com/artist/{artst_id}'))
-        name, _, rd, thumbnail, _ = data[0]
-        return cls(id, name, artists, thumbnail, rd, f'https://open.spotify.com/album/{id}')
+        return await album_dump(self.id, 'spotify', self.authors, name=self.name, thumbnail=self.thumbnail, release_date=self.release_date)
 
     @classmethod
     def create(cls, data: dict[str, Any]) -> Self:
@@ -62,19 +53,8 @@ class SpotifySong(Track):
     
     async def dump(self) -> LocalSong:
         album_id = await self.album.dump()
-        rowid = await SpotifyRequest.dump(self.id, self.title, album_id, self.artists, self.duration)
+        rowid = await song_dump(self.id, 'spotify', self.artists, title=self.title, album_id=album_id, duration=self.duration)
         return LocalSong.load(rowid)
-
-    @classmethod
-    def load(cls, id: str) -> Self:
-        artists = []
-        data = SpotifyRequest.get(id)
-        for _, _, name, _, artst_id in data:
-            artists.append(Artist(artst_id, name, f'https://open.spotify.com/artist/{artst_id}'))
-        title, album_id, _, duration, _ = data[0]
-        album = SpotifyAlbum.load(album_id)
-        return cls(id, title, artists, album, duration, f'https://open.spotify.com/track/{id}')
-
 
     @classmethod
     def create(cls, data: dict[str, Any]) -> Self:

@@ -7,8 +7,8 @@ from .permissions import PermissionLevel
 from .base import Base
 from .local import LocalPlaylist
 from models.songs import YTMusicSong
-from models.requests.local.playlists import YouTubePlaylistRequest
-from models.requests.web.youtube import playlist
+from api.local.playlists import YouTubePlaylistRequest
+from api.web.youtube import playlist
 
 
 

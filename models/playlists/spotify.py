@@ -7,9 +7,9 @@ import yarl
 from .permissions import PermissionLevel
 from .base import Base
 from .local import LocalPlaylist
+from api.local.playlist import dump
+from api.web.spotify import playlist
 from models.songs import SpotifySong
-from models.requests.local.playlists import SpotifyPlaylistRequest
-from models.requests.web.spotify import playlist
 
 
 
@@ -31,5 +31,5 @@ class SpotifyPlaylist(Base[SpotifySong]):
     
     async def dump(self, interaction: discord.Interaction) -> LocalPlaylist:
         target = interaction.guild or interaction.user
-        local_id = SpotifyPlaylistRequest.dump(self.id, self.title, target.id, interaction.user.id)
+        local_id = dump(self.id, 'spotify', self.title, target.id, interaction.user.id)
         return await LocalPlaylist.load(interaction, local_id)

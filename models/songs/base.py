@@ -4,8 +4,8 @@ from typing import TypeVar, TYPE_CHECKING
 
 import discord
 
-import models.requests.web.genius as gl
-import models.requests.web.youtube as yt
+import api.web.genius as gl
+import api.web.youtube as yt
 
 from models.typing import Field
 

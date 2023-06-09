@@ -1,7 +1,6 @@
 from yt_dlp import YoutubeDL
 from ytmusicapi import YTMusic
 from typing import Any, Literal
-from typing import overload
 
 import json
 
@@ -18,19 +17,7 @@ yt = YoutubeDL(OPTS)
 ytm = YTMusic()
 
 
-@overload
-def search(query: str, filter: Literal['songs'], limit: int = 5) -> list[dict[str, Any]]:
-    ...
-
-@overload
-def search(query: str, filter: Literal['artists'], limit: int = 5) -> list[dict[str, Any]]:
-    ...
-
-@overload
-def search(query: str, filter: Literal['albums'], limit: int = 5) -> list[dict[str, Any]]:
-    ...
-
-def search(query: str, filter: str, limit: int = 5) -> Any:
+def search(query: str, filter: Literal['songs', 'artists', 'albums'], limit: int = 5) -> list[dict[str, Any]]:
     return ytm.search(query, filter, limit=limit)
 
 

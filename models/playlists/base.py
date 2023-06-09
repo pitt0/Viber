@@ -1,12 +1,12 @@
 from functools import cached_property
 from typing import Self
 
+import api.local.playlist as queries
 import datetime
 import discord
 
 from .paginator import Paginator
 from .permissions import Owner, PermissionLevel
-from models.requests import PlaylistRequest
 from models.songs import S
 from resources import MISSING
 
@@ -62,13 +62,13 @@ class Base(Paginator[S]):
     
     async def rename(self, name: str) -> None:
         self.title = name
-        PlaylistRequest.rename(self.id, name)
+        queries.rename(self.id, name)
     
     async def delete(self) -> None:
-        PlaylistRequest.delete(self.id)
+        queries.delete(self.id)
 
     async def owners(self) -> list[Owner]:
-        data = PlaylistRequest.owners(self.id)
+        data = queries.owners(self.id)
         return [
             Owner(
                 await self.__client.fetch_user(owner[0]),
@@ -79,8 +79,8 @@ class Base(Paginator[S]):
     
     async def add_song(self, song: S, by: int) -> None:
         self.append(song)
-        PlaylistRequest.add(self.id, song.id, by)
+        queries.add(self.id, song.id, by)
 
     def remove_song(self, song: S) -> None:
         self.remove(song)
-        PlaylistRequest.remove(self.id, song.id)
+        queries.remove(self.id, song.id)

@@ -41,7 +41,7 @@ def from_url(url: str) -> dict[str, Any]:
     id = parts[-1].split("?si")[0]
     match check:
         case "track":
-            return track(id) # type: ignore[valid-type]
+            return track(id)
         
         case "playlist":
             return playlist(id)

@@ -12,14 +12,14 @@ def search(query: str) -> dict[str, Any]:
     return genius.search(query)
 
 
-def removesuffix(lyric: str) -> str:
+def remove_suffix(lyric: str) -> str:
     if lyric.endswith("Embed"):
         lyric = lyric.removesuffix("Embed")
         while lyric[-1].isnumeric():
             lyric = lyric.removesuffix(lyric[-1])
     return lyric 
 
-def removeprefix(lyric: str) -> str:
+def remove_prefix(lyric: str) -> str:
     if "Lyrics" not in lyric:
         return lyric
     
@@ -36,6 +36,6 @@ def lyrics(song_id: int) -> str:
     if l is None: 
         return ""
     
-    l = removeprefix(l)
-    l = removesuffix(l)
+    l = remove_prefix(l)
+    l = remove_suffix(l)
     return l
