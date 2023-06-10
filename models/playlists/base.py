@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Self
 
-import api.local.playlist as queries
+import api.queries as queries
 import datetime
 import discord
 
@@ -62,13 +62,15 @@ class Base(Paginator[S]):
     
     async def rename(self, name: str) -> None:
         self.title = name
-        queries.rename(self.id, name)
+        queries.write('update playlists set playlist_title = ? where rowid = ?;', (name, self.id))
     
     async def delete(self) -> None:
-        queries.delete(self.id)
+        queries.write('delete from playlists where rowid = ?;', (self.id,))
+        queries.write('delete from playlist_songs where playlist_id = ?;', (self.id,))
+        queries.write('delete from playlist_owners where playlist_id = ?;', (self.id,))
 
     async def owners(self) -> list[Owner]:
-        data = queries.owners(self.id)
+        data = queries.read('select owner_id, permission_lvl from playlist_owners where playlist_id = ?;', (self.id,))
         return [
             Owner(
                 await self.__client.fetch_user(owner[0]),
@@ -79,8 +81,8 @@ class Base(Paginator[S]):
     
     async def add_song(self, song: S, by: int) -> None:
         self.append(song)
-        queries.add(self.id, song.id, by)
+        queries.write('insert into playlist_songs (playlist_id, song_id, added_by) values (?, ?, ?);', (self.id, song.id, by))
 
     def remove_song(self, song: S) -> None:
         self.remove(song)
-        queries.remove(self.id, song.id)
+        queries.write('delete from playlist_songs where playlist_id = ? and song_id = ?;', (self.id, song.id))
