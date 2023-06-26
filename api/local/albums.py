@@ -4,14 +4,19 @@ from resources.connections import Connection
 from typing import Literal, Iterable
 
 
-async def upload_album(provider_id: str, provider: Literal['spotify', 'youtube'], **data) -> int:
+AlbumLocalId = int
+ArtistLocalId = int
+AlbumData = tuple[AlbumLocalId, str, str, str, str, str, str]
+
+
+async def upload_album(provider_id: str, provider: Literal['spotify', 'youtube'], **data) -> AlbumLocalId:
     async with (
         aiosqlite.connect('database/music.sqlite') as db,
         db.cursor() as cursor
     ):
         query = (
             'insert into albums values (:name, :release_date, :thumbnail) '
-            'on conflict do update set thumbnail = :t returning rowid;'
+            'on conflict do update set thumbnail = :thumbnail returning rowid;'
         )
         await cursor.execute(query, data)
         rowid = (await cursor.fetchone())[0] # type: ignore[non-null]
@@ -26,7 +31,7 @@ async def upload_album(provider_id: str, provider: Literal['spotify', 'youtube']
     return rowid
 
 
-async def upload_artists(provider: Literal['spotify', 'youtube'], artists: Iterable) -> list[int]:
+async def upload_artists(provider: Literal['spotify', 'youtube'], artists: Iterable) -> list[ArtistLocalId]:
     async with (
         aiosqlite.connect('database/music.sqlite') as db,
         db.cursor() as cursor
@@ -64,10 +69,10 @@ async def dump(id: str, provider: Literal['spotify', 'youtube'], artists: Iterab
 
 
 
-def get(id: int) -> list[tuple[int, str, str, str, str, str, str]]:
+def get(id: int) -> list[AlbumData]:
     with Connection() as cursor:
         query = (
-            'select albums.rowid, album_name, artist_name, release_date, thumbnail, external_album_ids.spotify_id, artists_ids.spotify_id as sp_artist_id '
+            'select albums.rowid, album_name, artist_name, release_date, thumbnail, aext.spotify_id, artists_ids.spotify_id as sp_artist_id '
             'from albums '
             'inner join external_album_ids as aext on aext.album_id = albums.rowid '
             'inner join album_authors on album_authors.album_id = albums.rowid '

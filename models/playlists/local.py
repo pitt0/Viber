@@ -27,7 +27,7 @@ class LocalPlaylist(Base[LocalSong]):
         user = await interaction.client.fetch_user(data[3])
         self = cls(data[0], data[1], target, user, dparser.parse(data[4], yearfirst=True), PermissionLevel(data[5]))
 
-        songs = queries.read('select song_id from playlist_songs where playlist_id = ?;', (id,))
+        songs = queries.read('select song_id from playlist_songs where playlist_id = ?;', (self.id,))
         for song in songs:
             song = LocalSong.load(song[0])
             self.append(song)

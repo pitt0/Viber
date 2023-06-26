@@ -11,7 +11,7 @@ async def update_song(provider_id: str, provider: Literal['spotify', 'youtube'],
     ):
         query = (
             'insert into songs values (:title, :album_id, :duration) '
-            'on conflict do update set duration = :d ' # NOTE forced update so it returns rowid
+            'on conflict do update set duration = :duration ' # HACK forced update so it returns rowid
             'returning rowid;'
         )
         await cursor.execute(query, data)
@@ -36,7 +36,7 @@ async def upload_artists(provider: Literal['spotify', 'youtube'], artists: Itera
         ids = []
         query = (
             f'insert into artists_ids (artist_name, {provider}_id) values (:n, :pid) '
-            f'on conflict do update set {provider}_id = :sid '
+            f'on conflict do update set {provider}_id = :pid '
             'returning rowid;'
         )
         for artist in artists:
