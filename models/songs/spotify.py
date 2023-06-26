@@ -10,6 +10,7 @@ from .local import LocalSong
 from api.local.albums import dump as album_dump
 from api.local.songs import dump as song_dump
 from api.web.spotify import track, search
+from resources import Cache
 from resources import Time
 
 
@@ -42,6 +43,7 @@ class SpotifyAlbum(Album):
 class SpotifySong(Track):
 
     id: str
+    reference: str
 
     @cached_property
     def thumbnail(self) -> str:
@@ -54,6 +56,8 @@ class SpotifySong(Track):
     async def dump(self) -> LocalSong:
         album_id = await self.album.dump()
         rowid = await song_dump(self.id, 'spotify', self.artists, title=self.title, album_id=album_id, duration=self.duration)
+        if hasattr(self, 'reference'):
+            Cache.add(self.reference, rowid)
         return LocalSong.load(rowid)
 
     @classmethod
@@ -79,6 +83,7 @@ class SpotifySong(Track):
 
     @classmethod
     def search(cls, query: str, limit: int = 1) -> Any:
+        cls.reference = query #HACK: This dumps query to class' reference variable, hence it will remain the same even if we create another instance from this class from another method
         songs = search(query)
         if limit == 1:
             return songs[0]

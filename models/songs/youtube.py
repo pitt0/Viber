@@ -10,6 +10,7 @@ from .local import LocalSong
 from api.local.albums import dump as album_dump
 from api.local.songs import dump as song_dump
 from api.web.youtube import item, album, search, source
+from resources import Cache
 
 
 
@@ -44,6 +45,7 @@ class YTMusicAlbum(Album):
 class YTMusicSong(Track):
 
     id: str
+    reference: str
 
     @cached_property
     def source(self) -> str:
@@ -61,6 +63,8 @@ class YTMusicSong(Track):
     async def dump(self) -> LocalSong:
         album_id = await self.album.dump()
         rowid = await song_dump(self.id, 'youtube', self.artists, title=self.title, album_id=album_id, duration=self.duration)
+        if self.__getattribute__('reference'):
+            Cache.add(self.reference, rowid)
         return LocalSong.load(rowid)
 
     @classmethod
@@ -92,6 +96,7 @@ class YTMusicSong(Track):
 
     @classmethod
     def search(cls, query: str, limit: int = 1) -> Any:
+        cls.reference = query
         data = search(query, 'songs', limit)
         if limit == 1:
             return data[0]
