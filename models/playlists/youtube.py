@@ -6,8 +6,8 @@ import yarl
 from .permissions import PermissionLevel
 from .base import Base
 from .local import LocalPlaylist
+from api.local import playlist as api
 from models.songs import YTMusicSong
-from api.local.playlists import YouTubePlaylistRequest
 from api.web.youtube import playlist
 
 
@@ -38,5 +38,5 @@ class YouTubePlaylist(Base[YTMusicSong]):
     
     async def dump(self, interaction: discord.Interaction) -> LocalPlaylist:
         target = interaction.guild or interaction.user
-        local_id = YouTubePlaylistRequest.dump(self.id, self.title, target.id, interaction.user.id)
+        local_id = api.dump(self.id, 'youtube', self.title, target.id, interaction.user.id)
         return await LocalPlaylist.load(interaction, local_id)

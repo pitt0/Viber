@@ -27,7 +27,7 @@ S = TypeVar("S", bound="Track")
 
 class Artist:
 
-    def __init__(self, id: Any, name: str, url: str):
+    def __init__(self, id: Any, name: str, url: str) -> None:
         self.id = id
         self.name = name
         self.url = url
@@ -47,7 +47,7 @@ class Artist:
 
 class Album:
 
-    def __init__(self, id: Any, name: str, authors: Sequence[Artist], thumbnail: str, release_date: str, url: str):
+    def __init__(self, id: Any, name: str, authors: Sequence[Artist], thumbnail: str, release_date: str, url: str) -> None:
         self.id = id
         self.name = name
         self.authors = authors
@@ -66,7 +66,7 @@ class Album:
 
 class Track:
 
-    def __init__(self, id: Any, title: str, authors: Sequence[Artist], album: Album, duration: str, url: str):
+    def __init__(self, id: Any, title: str, authors: Sequence[Artist], album: Album, duration: str, url: str) -> None:
         self.id = id
         self.title = title
         self.author = authors[0]

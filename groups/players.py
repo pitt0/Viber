@@ -182,7 +182,7 @@ class Player(slash.Group):
        
         player = self.player(interaction)
 
-        if interaction.guild.id not in self.players or player.queue.empty:
+        if interaction.guild.id not in self.players or not player.queue:
             await interaction.response.send_message("I'm not currenly streaming any music.", ephemeral=True)
             return 
         
@@ -195,7 +195,7 @@ class Player(slash.Group):
 
         player = self.player(interaction)
 
-        if interaction.guild.id not in self.players or player.queue.empty:
+        if interaction.guild.id not in self.players or not player.queue:
             await interaction.response.send_message("I'm not currently streaming any music.", ephemeral=True)
             return
 
@@ -208,7 +208,7 @@ class Player(slash.Group):
         assert interaction.guild is not None
 
         player = self.player(interaction)
-        if interaction.guild.id not in self.players or player.queue.empty:
+        if interaction.guild.id not in self.players or not player.queue:
             await interaction.response.send_message("I'm not currently streaming any music.", ephemeral=True)
             return
 

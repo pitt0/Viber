@@ -23,7 +23,7 @@ class SongsChoice(list[S]):
     @classmethod
     def search(cls, reference: str, purpose: Type[S], limit: int = 5) -> Self:
         self = cls(reference, purpose, limit)
-        if len(self) == 0:
+        if not self:
             # It's ok for the moment, if error tracking does not work:
             # use `if self.empty` out of this method
             raise NotFound(f"Searching `{reference}` returned no result.")
