@@ -1,5 +1,6 @@
 from discord import app_commands as slash
 from discord.ui import TextInput
+from typing import Callable, Coroutine
 
 import discord
 import yarl
@@ -12,23 +13,20 @@ from models import GuildLister, UserLister, Cached
 
 
 
-async def playlists(interaction: discord.Interaction, current: str) -> list[slash.Choice[int]]:
-    return  [
-        slash.Choice(name=playlist[1], value=playlist[0])
-        for playlist in Cached.playlists(interaction, current)
-    ]
+# type Cache = list[tuple[int, str]]
+# type LiveCache = Callable[[discord.Interaction, str], Cache]
+Cache = list[tuple[int, str]]
+LiveCache = Callable[[discord.Interaction, str], Cache]
 
-async def advices(interaction: discord.Interaction, current: str) -> list[slash.Choice[int]]:
-    return [
-        slash.Choice(name=song[1], value=song[0])
-        for song in Cached.advices(interaction, current)
-    ]
+def autocomplete(cache: LiveCache) -> Callable[[discord.Interaction, str], Coroutine[None, None, list[slash.Choice[int]]]]:
 
-async def favourites(interaction: discord.Interaction, current: str) -> list[slash.Choice[int]]:
-    return [
-        slash.Choice(name=song[1], value=song[0])
-        for song in Cached.favourites(interaction, current)
-    ]
+    async def load_cache(interaction: discord.Interaction, current: str) -> list[slash.Choice[int]]:
+        return [
+            slash.Choice(name=playlist[1], value=playlist[0])
+            for playlist in cache(interaction, current)
+        ]
+    
+    return load_cache
 
 
 
@@ -83,7 +81,7 @@ class Playlists(slash.Group):
 
     @slash.command(name='owner', description='Take action on a playlist owner.')
     @slash.describe(permission_level='Level 0 removes the user from owners, level 4 is admin.')
-    @slash.autocomplete(playlist=playlists)
+    @slash.autocomplete(playlist=autocomplete(Cached.playlists))
     async def owner_actions(self, interaction: discord.Interaction, playlist: int, user: discord.Member, permission_level: slash.Range[int, 0, 4], ephemeral: bool = False) -> None:
         _playlist = await LocalPlaylist.load(interaction, playlist)
         await _playlist.set_owner(user, PermissionLevel(permission_level))
@@ -95,7 +93,7 @@ class Playlists(slash.Group):
 
 
     @slash.command(name="show", description="Shows a playlist. If the playlist is private it will be sent as a private message.")
-    @slash.autocomplete(name=playlists)
+    @slash.autocomplete(name=autocomplete(Cached.playlists))
     async def show_playlist(self, interaction: discord.Interaction, name: int) -> None: # NOTE: name is actually playlist_id
         await interaction.response.defer()
 
@@ -160,7 +158,7 @@ class Advices(slash.Group):
 
 
     @slash.command(name='remove', description='Remove a song from your adviced songs.')
-    @slash.autocomplete(song=advices)
+    @slash.autocomplete(song=autocomplete(Cached.advices))
     async def remove_advice(self, interaction: discord.Interaction, song: int) -> None:
         _song = LocalSong.load(song)
         advices = await LocalPlaylist.load(interaction, title='Advices', target_id=interaction.user.id)
@@ -195,7 +193,7 @@ class Favourites(slash.Group):
         await interaction.followup.send(message, embed=_song.embed)
 
     @slash.command(name='remove', description='Removes a song from your favourites.')
-    @slash.autocomplete(song=favourites)
+    @slash.autocomplete(song=autocomplete(Cached.favourites))
     async def remove_song(self, interaction: discord.Interaction, song: int) -> None:
         _song = LocalSong.load(song)
         favourites = await LocalPlaylist.load(interaction, title='Liked', target_id=interaction.user.id)
