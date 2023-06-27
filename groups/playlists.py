@@ -138,7 +138,7 @@ class Advices(slash.Group):
 
 
     @slash.command(name='give', description='Advice a song to someone.')
-    async def give_advice(self, interaction: discord.Interaction, song: str, to: discord.Member) -> None:
+    async def give_advice(self, interaction: discord.Interaction, song: str, to: discord.Member, mention: bool = True) -> None:
         await interaction.response.defer()
         advices = await LocalPlaylist.load(interaction, title='Advices', target_id=to.id)
         if not song.startswith("http"):
@@ -148,8 +148,11 @@ class Advices(slash.Group):
             _song = await SpotifySong.find(song)
 
         if _song not in advices:
-            await advices.add_song(_song, interaction.user.id) # type: ignore
-            message = f"Adviced to {to.mention}"
+            await advices.add_song(_song, interaction.user.id)
+            if mention:
+                message = f"Adviced to {to.mention}"
+            else:
+                message = f"Adviced to {to.display_name}"
         else:
             message = f"This song is already in {to.display_name}'s advice list"
 
