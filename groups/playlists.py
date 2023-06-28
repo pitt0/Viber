@@ -3,6 +3,7 @@ from discord.ui import TextInput
 from typing import Callable, Coroutine
 
 import discord
+import random
 import yarl
 
 import ui
@@ -80,16 +81,30 @@ class Playlists(slash.Group):
 
 
     @slash.command(name='owner', description='Take action on a playlist owner.')
-    @slash.describe(permission_level='Level 0 removes the user from owners, level 4 is admin.')
+    @slash.describe(permission_level='Ownership level ranges from 1 (disown) to 5 (admin). For a complete info message run /playlist ownership')
     @slash.autocomplete(playlist=autocomplete(Cached.playlists))
-    async def owner_actions(self, interaction: discord.Interaction, playlist: int, user: discord.Member, permission_level: slash.Range[int, 0, 4], ephemeral: bool = False) -> None:
+    async def owner_actions(self, interaction: discord.Interaction, playlist: int, user: discord.Member, permission_level: slash.Range[int, 1, 5], ephemeral: bool = False) -> None:
         _playlist = await LocalPlaylist.load(interaction, playlist)
-        await _playlist.set_owner(user, PermissionLevel(permission_level))
-        if permission_level == 0:
+        await _playlist.set_owner(user, PermissionLevel(permission_level-1))
+        if permission_level == 1:
             message = f'{user.mention} has been removed from owners of playlist `{_playlist.title}`'
         else:
             message = f'{user.mention} has been granted permission level {permission_level} for playlist {_playlist.title}'
         await interaction.response.send_message(f'Done! {message}!', ephemeral=ephemeral)
+
+
+    @slash.command(name='ownership', description='Describes how playlists are managed by owners.')
+    async def ownership_info(self, interaction: discord.Interaction) -> None:
+        MESSAGE = (
+            "There are 5 levels of ownership of a playlist:" +
+            "\n> 1. The user cannot perform any action on a playlist, nor even see the playlist if private." +
+            "\n> 2. The user can see the playlist, but cannot perform any action." +
+            "\n> 3. The user can add songs to the playlist (but cannot remove them)." +
+            "\n> 4. The user can add and remove songs to the playlist." +
+            "\n> 5. The user is considered an admin and can manage songs in the playlist, as well as rename and delete the playlist." +
+            "\n\nAdditionally, playlist can have a privacy level, that overrides any user privacy level, e. g. if a playlist's privacy level is 2 anyone can see it, even if their ownership level is 1."
+        )
+        await interaction.response.send_message(MESSAGE)
 
 
     @slash.command(name="show", description="Shows a playlist. If the playlist is private it will be sent as a private message.")
@@ -133,6 +148,12 @@ class Advices(slash.Group):
     async def show_advices(self, interaction: discord.Interaction) -> None:
         advices = await LocalPlaylist.load(interaction, title='Advices', target_id=interaction.user.id)
         await interaction.response.send_message(embed=advices.embeds()[0], view=ui.MenuView(advices.embeds()))
+
+
+    @slash.command(name='random', description='Sends a random song from your adviced songs.')
+    async def random_advice(self, interaction: discord.Interaction) -> None:
+        advices = await LocalPlaylist.load(interaction, title='Advices', target_id=interaction.user.id)
+        await interaction.response.send_message(embed=random.choice(advices).embed) # TODO: Add context and maybe change embed
 
 
     @slash.command(name='give', description='Advice a song to someone.')
@@ -185,7 +206,7 @@ class Favourites(slash.Group):
             _song = await SpotifySong.find(song)
 
         if _song not in favourites:
-            await favourites.add_song(_song, interaction.user.id) # type: ignore
+            await favourites.add_song(_song, interaction.user.id)
             message = f"{_song.title} added to your favourites!"
         else:
             message = f"This song already is in favourites list."
