@@ -1,5 +1,3 @@
-from typing import Self
-
 import dateutil.parser as dparser
 import discord
 import yarl
@@ -10,6 +8,7 @@ from .local import LocalPlaylist
 from api.local.playlist import dump
 from api.web.spotify import playlist
 from models.songs import SpotifySong
+from typing import Self
 
 
 

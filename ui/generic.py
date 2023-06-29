@@ -1,7 +1,6 @@
+import discord
 from discord.utils import MISSING
 
-import asyncio
-import discord
 
 
 class ResponseView(discord.ui.View):

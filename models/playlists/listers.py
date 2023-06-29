@@ -1,15 +1,15 @@
-from abc import abstractclassmethod
-from dataclasses import dataclass
-from typing import Self
-
 import calendar
 import datetime
 import dateutil.parser as dparser
 import discord
 
 from .paginator import Paginator
+from abc import abstractclassmethod
+from dataclasses import dataclass
 from models.typing import USER
 from resources import Connection
+from typing import Self
+
 
 
 __all__ = (
@@ -44,7 +44,7 @@ class Lister(Paginator[EmbedPlaylist]):
     def paginate(self, page: int) -> discord.Embed:
         return discord.Embed(
             title=self.title,
-            description=f'Page {page} of {(len(self)//12)+1}'
+            description=f'Page {page} of {self.pages}'
         )
     
     def embeds(self) -> list[discord.Embed]:
@@ -58,9 +58,9 @@ class GuildLister(Lister):
     def load(cls, guild: discord.Guild) -> Self:
         with Connection() as cur:
             query = (
-                'select playlist_title, creation_date ' # NOTE: there was author_id
-                'from playlists '
-                'where target_id = ? and privacy > 0 and author_id != 824230778187415552;'
+                'SELECT playlist_title, creation_date ' # NOTE: there was author_id
+                'FROM playlists '
+                'WHERE target_id = ? AND privacy > 0 AND author_id != 824230778187415552;'
             )
             cur.execute(query, (guild.id,))
             return cls(
@@ -79,9 +79,9 @@ class UserLister(Lister):
     def load(cls, user: USER, show_private: bool = False) -> Self:
         with Connection() as cur:
             query = (
-                'select playlist_title, creation_date, privacy '
-                'from playlists '
-                'where author_id = ?;'
+                'SELECT playlist_title, creation_date, privacy '
+                'FROM playlists '
+                'WHERE author_id = ?;'
             )
             cur.execute(query, (user.id,))
             

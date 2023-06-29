@@ -1,5 +1,3 @@
-from typing import Self
-
 import discord
 import yarl
 
@@ -7,8 +5,9 @@ from .permissions import PermissionLevel
 from .base import Base
 from .local import LocalPlaylist
 from api.local import playlist as api
-from models.songs import YTMusicSong
 from api.web.youtube import playlist
+from models.songs import YTMusicSong
+from typing import Self
 
 
 

@@ -1,7 +1,6 @@
+import discord
 from dataclasses import dataclass
 from enum import Enum
-
-import discord
 
 
 __all__ = ('Owner', 'PermissionLevel')

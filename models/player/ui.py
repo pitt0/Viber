@@ -1,10 +1,9 @@
-from typing import TYPE_CHECKING
-
 import discord
 
 from .queue import Queue
 from models.playlists import LocalPlaylist
 from models.songs import Track
+from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -56,7 +55,7 @@ class PlayerUI(discord.ui.View):
     @discord.ui.button(emoji="💟")
     async def like(self, interaction: discord.Interaction, _) -> None:
         ls = await LocalPlaylist.load(interaction, title='Liked', target_id=interaction.user.id)
-        ls.add_song(self.song, interaction.user.id) # type: ignore
+        await ls.add_song(self.song, interaction.user.id) # type: ignore
         await interaction.response.send_message(f"Playlist Updated!", ephemeral=True)
 
     @discord.ui.button(emoji="⏹️", row=1)

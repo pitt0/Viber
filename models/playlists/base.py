@@ -1,14 +1,13 @@
-from functools import cached_property
-from typing import Self
-
 import api.queries as queries
 import datetime
 import discord
 
 from .paginator import Paginator
 from .permissions import Owner, PermissionLevel
+from functools import cached_property
 from models.songs import S
 from resources import MISSING
+from typing import Self
 
 
 __all__ = ('Base',)
@@ -44,7 +43,7 @@ class Base(Paginator[S]):
             description=f"by {self.author.display_name}",
             color=discord.Color.blurple()
         )
-        _e.set_footer(text=f"Page {index} of {(len(self)//12)+1}")
+        _e.set_footer(text=f"Page {index} of {self.pages}")
         _e.set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
 
         return _e
@@ -65,12 +64,12 @@ class Base(Paginator[S]):
         queries.write('update playlists set playlist_title = ? where rowid = ?;', (name, self.id))
     
     async def delete(self) -> None:
-        queries.write('delete from playlists where rowid = ?;', (self.id,))
-        queries.write('delete from playlist_songs where playlist_id = ?;', (self.id,))
-        queries.write('delete from playlist_owners where playlist_id = ?;', (self.id,))
+        queries.write('DELETE FROM playlists WHERE rowid = ?;', (self.id,))
+        queries.write('DELETE FROM playlist_songs WHERE playlist_id = ?;', (self.id,))
+        queries.write('DELETE FROM playlist_owners WHERE playlist_id = ?;', (self.id,))
 
     async def owners(self) -> list[Owner]:
-        data = queries.read('select owner_id, permission_lvl from playlist_owners where playlist_id = ?;', (self.id,))
+        data = queries.read('SELECT owner_id, permission_lvl FROM playlist_owners WHERE playlist_id = ?;', (self.id,))
         return [
             Owner(
                 await self.__client.fetch_user(owner[0]),
@@ -81,8 +80,8 @@ class Base(Paginator[S]):
     
     async def add_song(self, song: S, by: int) -> None:
         self.append(song)
-        queries.write('insert into playlist_songs (playlist_id, song_id, added_by) values (?, ?, ?);', (self.id, song.id, by))
+        queries.write('INSERT INTO playlist_songs (playlist_id, song_id, added_by) VALUES (?, ?, ?);', (self.id, song.id, by))
 
     def remove_song(self, song: S) -> None:
         self.remove(song)
-        queries.write('delete from playlist_songs where playlist_id = ? and song_id = ?;', (self.id, song.id))
+        queries.write('DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?;', (self.id, song.id))

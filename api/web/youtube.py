@@ -1,8 +1,7 @@
+import json
 from yt_dlp import YoutubeDL
 from ytmusicapi import YTMusic
 from typing import Any, Literal
-
-import json
 
 
 __all__ = (
@@ -22,10 +21,10 @@ def search(query: str, filter: Literal['songs', 'artists', 'albums'], limit: int
 
 
 def item(id: str) -> dict[str, Any]:
-    return ytm.get_song(id) # type: ignore
+    return ytm.get_song(id)
 
 def album(id: str) -> dict[str, Any]:
-    return ytm.get_album(id) # type: ignore
+    return ytm.get_album(id)
 
 def playlist(id: str) -> dict[str, Any]:
     return ytm.get_playlist(id)

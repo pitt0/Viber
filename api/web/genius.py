@@ -1,7 +1,6 @@
-from typing import Any
-
 from dotenv import load_dotenv
 from lyricsgenius.genius import Genius
+from typing import Any
 
 
 load_dotenv()

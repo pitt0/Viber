@@ -1,7 +1,3 @@
-from functools import cached_property
-from typing import Any, Literal, Self
-from typing import overload
-
 import discord
 import yarl
 
@@ -10,7 +6,10 @@ from .local import LocalSong
 from api.local.albums import dump as album_dump
 from api.local.songs import dump as song_dump
 from api.web.youtube import item, album, search, source
-from resources import Cache
+from functools import cached_property
+from resources import SongCache
+from typing import Any, Literal, Self
+from typing import overload
 
 
 
@@ -64,7 +63,7 @@ class YTMusicSong(Track):
         album_id = await self.album.dump()
         rowid = await song_dump(self.id, 'youtube', self.artists, title=self.title, album_id=album_id, duration=self.duration)
         if self.__getattribute__('reference'):
-            Cache.add(self.reference, rowid)
+            SongCache.add(self.reference, rowid)
         return LocalSong.load(rowid)
 
     @classmethod

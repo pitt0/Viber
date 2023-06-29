@@ -1,11 +1,10 @@
-from discord.ui import TextInput
-from typing import Self
-
 import discord
-
+from discord.ui import TextInput
 from models import LocalPlaylist, SpotifySong
 from models import SongsChoice
 from resources import SearchingException
+from typing import Self
+
 
 
 

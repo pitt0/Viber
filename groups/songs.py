@@ -1,14 +1,14 @@
-from discord import app_commands as slash
-from discord.ext import commands
-
 import discord
 
-from resources import JSONConnection
-
+from discord import app_commands as slash
+from discord.ext import commands
 from models import LocalPlaylist, SongsChoice
 from models import Players
-from models import SpotifySong
+from models import LocalSong, SpotifySong
+from resources import JSONConnection, SongCache
 from resources import SearchingException
+
+
 
 
 __all__ = (
@@ -120,19 +120,23 @@ class Songs(slash.Group):
             await interaction.response.send_message(embed=_error_embed)
     
     @slash.command(name="advice", description="Advices a song to someone in this server")
-    async def advice_song(self, interaction: discord.Interaction, song: str, to: discord.Member) -> None:
+    @slash.describe(choose='If a query is registered in the cache you can still decide to choose to pick a song.')
+    async def advice_song(self, interaction: discord.Interaction, song: str, to: discord.Member, choose: bool = False) -> None:
         await interaction.response.defer()
         advices = await LocalPlaylist.load(interaction, title='Advices', target_id=to.id)
         if not song.startswith("http"):
-            choice = SongsChoice.search(song, SpotifySong)
-            _song = await choice.choose(interaction)
+            if not choose and (song_id := SongCache.load(song)):
+                _song = LocalSong.load(song_id)
+            else:
+                choice = SongsChoice.search(song, SpotifySong)
+                _song = await choice.choose(interaction)
         else:
             _song = await SpotifySong.find(song)
 
         embed = _song.embed
 
         if _song not in advices:
-            await advices.add_song(_song, interaction.user.id) # type: ignore
+            await advices.add_song(_song, interaction.user.id)
             message = f"Adviced to {to.mention}"
         else:
             message = f"This song is already in {to.display_name}'s advice list"
@@ -147,7 +151,10 @@ class Songs(slash.Group):
             choice = SongsChoice.search(song, SpotifySong)
             _song = await choice.choose(interaction)
         else:
-            _song = await SpotifySong.find(song)
+            if (song_id := SongCache.load(song)):
+                _song = LocalSong.load(song_id)
+            else:
+                _song = await SpotifySong.find(song)
 
         menu = SongMenu(interaction.guild, _song, False)
         await interaction.followup.send(embed=_song.embed, view=menu)
@@ -160,7 +167,10 @@ class Songs(slash.Group):
                 choice = SongsChoice.search(song, SpotifySong)
                 _song = await choice.choose(interaction)
             else:
-                _song = await SpotifySong.find(song)
+                if (song_id := SongCache.load(song)):
+                    _song = LocalSong.load(song_id)
+                else:
+                    _song = await SpotifySong.find(song)
         except SearchingException as e:
             # await self.send_error_message(interaction, e, ephemeral=True)
             return

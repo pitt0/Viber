@@ -1,6 +1,6 @@
-from typing import TypedDict
-
 import discord
+
+from typing import TypedDict
 
 
 class Field(TypedDict):

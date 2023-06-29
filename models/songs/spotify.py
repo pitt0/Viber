@@ -1,7 +1,3 @@
-from functools import cached_property
-from typing import Any, Literal, Self
-from typing import overload
-
 import discord
 import yarl
 
@@ -10,8 +6,11 @@ from .local import LocalSong
 from api.local.albums import dump as album_dump
 from api.local.songs import dump as song_dump
 from api.web.spotify import track, search
-from resources import Cache
+from functools import cached_property
+from resources import SongCache
 from resources import Time
+from typing import Any, Literal, Self
+from typing import overload
 
 
 
@@ -57,13 +56,13 @@ class SpotifySong(Track):
         album_id = await self.album.dump()
         rowid = await song_dump(self.id, 'spotify', self.artists, title=self.title, album_id=album_id, duration=self.duration)
         if hasattr(self, 'reference'):
-            Cache.add(self.reference, rowid)
+            SongCache.add(self.reference, rowid)
         return LocalSong.load(rowid)
 
     @classmethod
     def create(cls, data: dict[str, Any]) -> Self:
         artists = [SpotifyArtist.create(artist) for artist in data['artists']]
-        album = SpotifyAlbum.create(data['album']) # type: ignore
+        album = SpotifyAlbum.create(data['album'])
         return cls(data['id'], data['name'], artists, album, Time.from_ms(data['duration_ms']), f"https://open.spotify.com/track/{data['id']}")
 
     @classmethod

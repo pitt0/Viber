@@ -1,13 +1,12 @@
+import api.web.youtube as yt
+import api.web.genius as gl
+import discord
+
 from functools import cached_property
+from models.typing import Field
 from typing import Any, Self, Sequence
 from typing import TypeVar, TYPE_CHECKING
 
-import discord
-
-import api.web.genius as gl
-import api.web.youtube as yt
-
-from models.typing import Field
 
 if TYPE_CHECKING:
     from .local import LocalSong

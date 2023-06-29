@@ -1,8 +1,7 @@
-from typing import Any
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-
 from dotenv import load_dotenv
+from spotipy.oauth2 import SpotifyOAuth
+from typing import Any
 
 
 load_dotenv()

@@ -1,9 +1,8 @@
-from functools import cached_property
-from typing import Self
-
 from .base import Artist, Album, Track
 from api.local.albums import get as get_album
 from api.local.songs import get as get_song
+from functools import cached_property
+from typing import Self
 
         
 

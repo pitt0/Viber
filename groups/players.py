@@ -1,14 +1,12 @@
-from discord import app_commands as slash
-from discord.ext import commands
-
 import discord
 
+from discord import app_commands as slash
+from discord.ext import commands
+from models import Players, MusicPlayer
+from models import YTMusicSong
+from models import SongsChoice
 from resources import JSONConnection
 from resources import SearchingException
-
-from models import SongsChoice
-from models import YTMusicSong
-from models import Players, MusicPlayer
 
 
 
@@ -133,7 +131,7 @@ class Player(slash.Group):
             return
         
         await interaction.followup.send("Added to queue.", embed=song.embed)
-        await player.add_song(song, interaction.user) # type: ignore
+        await player.add_song(song, interaction.user)
 
     @slash.command(name="pause", description="Pauses the song the bot is playing.")
     @slash.check(lambda interaction: isinstance(interaction.channel, discord.TextChannel))

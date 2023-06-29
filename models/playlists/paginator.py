@@ -1,9 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Callable, TypeVar
-
 import discord
-
+from abc import ABC, abstractmethod
 from models.typing import Field
+from typing import Callable, TypeVar
 
 
 T = TypeVar('T')
@@ -12,6 +10,10 @@ T = TypeVar('T')
 class Paginator(ABC, list[T]):
 
     title: str
+
+    @property
+    def pages(self) -> int:
+        return (len(self)//12)+1
 
     def empty_embed(self) -> discord.Embed:
         return discord.Embed(

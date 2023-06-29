@@ -1,10 +1,9 @@
-from typing import Self, Type
-
 import discord
 
 from models.songs import S, LocalSong
 from resources import NotFound
 from ui import MenuView
+from typing import Self, Type
 
 
 __all__ = ("SongsChoice",)

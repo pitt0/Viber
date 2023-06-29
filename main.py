@@ -11,6 +11,7 @@ from groups.songs import Songs
 from groups.players import Player
 from groups.reminder import Reminder
 
+
 client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)
 

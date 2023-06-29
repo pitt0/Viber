@@ -1,16 +1,15 @@
-from discord import app_commands as slash
-from discord.ui import TextInput
-from typing import Callable, Coroutine
-
 import discord
 import random
+import ui
 import yarl
 
-import ui
+from discord import app_commands as slash
+from discord.ui import TextInput
 from models import LocalPlaylist, YouTubePlaylist, SpotifyPlaylist
 from models import SongsChoice, PermissionLevel
 from models import SpotifySong, LocalSong
 from models import GuildLister, UserLister, Cached
+from typing import Callable, Coroutine
 
 
 

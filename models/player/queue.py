@@ -1,11 +1,10 @@
-from typing import Any
-from typing import overload
-
 import discord
 import random
 
 from models.songs import Track
 from models.typing import USER
+from typing import Any
+from typing import overload
 
 
 SONG_ENTRY = tuple[Track, USER]

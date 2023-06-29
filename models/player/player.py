@@ -4,7 +4,6 @@ import json
 
 from .queue import Queue
 from .ui import PlayerUI
-
 from models.songs import Track
 from models.typing import USER
 
