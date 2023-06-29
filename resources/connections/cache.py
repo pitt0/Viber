@@ -60,3 +60,11 @@ class ReminderCache:
     def load(cls, person_id: int) -> list[int]:
         with open(cls.path) as f:
             return json.load(f)[str(person_id)]
+        
+    @classmethod
+    def delete_first(cls, person_id: int) -> None:
+        with open(cls.path) as f:
+            data = json.load(f)
+        data[str(person_id)].pop()
+        with open(cls.path, 'w') as f:
+            json.dump(data, f, indent=4)
