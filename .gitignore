@@ -1,12 +1,13 @@
 __pycache__/
-/samples
-/cache
-/database
 
-/.vscode
-
+# environment
 .env
 .cache
-*.sql
 
-desktop.ini
+# database
+*.json
+*.sqlite
+temp.sql
+
+# testing
+/samples
