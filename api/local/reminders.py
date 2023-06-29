@@ -51,11 +51,11 @@ class Reminder:
         )
         songs_ids: list[tuple[int, int]] = queries.read(query, (self.person_id,))
         cache = ReminderCache.load(self.person_id)
+        if len(cache) > len(songs_ids):
+            ReminderCache.delete_first(self.person_id)
         
-        while True:
-            choice = random.choice(songs_ids)
-            if choice[0] not in cache:
-                break
+        while (choice := random.choice(songs_ids)) in cache:
+            continue
 
         self._song = LocalSong.load(choice[0])
 
