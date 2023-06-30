@@ -11,7 +11,6 @@ from typing import Unpack
 
 # type
 ReminderEntry = tuple[int, int, str, str]
-HEADERS = ['Hey [name], check this out!', "It's your lucky day!", 'Check out this song!', ]
 
 
 class Reminder:
@@ -58,17 +57,15 @@ class Reminder:
             continue
 
         self._song = LocalSong.load(choice[0])
-
+        return choice[1] # returns advicer's id, to be added as author
+    
+    def embed(self, user: discord.User, adviser: discord.User) -> discord.Embed:
         self._embed = discord.Embed(
-            title=random.choice(HEADERS),
+            title=f'Hey {user.display_name}, check this out!',
             description=self._song,
             color=discord.Colour.orange()
         )
         self._embed.set_image(url=self._song.thumbnail)
-        return choice[1] # returns advicer's id, to be added as author
-    
-    def embed(self, user: discord.User, adviser: discord.User) -> discord.Embed:
-        self._embed.title = self._embed.title.replace('[name]', user.display_name) # type: ignore[non-null]
         self._embed.set_footer(text=f"Advised by {adviser.display_name}", icon_url=adviser.display_avatar)
         return self._embed
     
