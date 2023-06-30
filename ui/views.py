@@ -1,14 +1,16 @@
+import api.queries as queries
 import discord
 
 from .generic import MenuView, ResponseView
 from .modals import *
-from models import LocalPlaylist
+from models import LocalPlaylist, LocalSong
 from models import PermissionLevel
 
 
 __all__ = (
     "PlaylistPaginator",
-    "PlaylistSettings"
+    "PlaylistSettings",
+    "ReminderOptions"
 )
 
 
@@ -134,3 +136,52 @@ class PermissionChanger(Settings):
         await self.playlist.set_privacy(permission)
         await interaction.followup.send(f"Playlist's general permission level set to `{permission.name}`")
         self.stop()
+
+
+
+class ReminderOptions(discord.ui.View):
+
+    def __init__(self, user: discord.User, song: LocalSong) -> None:
+        super().__init__()
+        self.user = user
+        self.song = song
+
+
+    @discord.ui.button(label='Disable')
+    async def disable_reminders(self, interaction: discord.Interaction, _) -> None:
+        embed = discord.Embed(
+            title='Are you sure?',
+            description='You can also lower the number of notifications by choosing one day of the week in which to recieve these reminders!',
+            color=discord.Colour.red()
+        ).set_footer(text='You can reenable the reminder at anytime by running /reminders enable')
+        view = Confirmation()
+        await interaction.response.send_message(embed=embed, view=view)
+        await view.wait()
+        if view.response:
+            queries.write("UPDATE reminders SET active = 0 WHERE person_id = ?;", (interaction.user.id,))
+            await interaction.followup.send("Action completed! You won't recieve reminders anymore.")
+        else:
+            await interaction.followup.send('Action cancelled.')
+        
+        await interaction.followup.delete()
+        
+
+    @discord.ui.button(label='Already listened?', style=discord.ButtonStyle.red)
+    async def remove_song(self, interaction: discord.Interaction, _) -> None:
+        playlist_id = queries.read("SELECT rowid FROM playlists WHERE playlist_title = 'Advices' AND playlist_target = ?;", (self.user.id,))[0]
+        queries.write("REMOVE FROM playlist_songs WHERE song_id = ? AND playlist_id = ?;", (self.song.id, playlist_id))
+
+        await interaction.response.send_message('Song removed from your advice list!')
+
+
+class Confirmation(discord.ui.View):
+
+    response: bool = False
+
+    @discord.ui.button(label='Yes')
+    async def confirm(self, interaction: discord.Interaction, _) -> None:
+        self.response = True
+
+    @discord.ui.button(label='No')
+    async def cancel(self, interaction: discord.Interaction, _) -> None:
+        self.response = False

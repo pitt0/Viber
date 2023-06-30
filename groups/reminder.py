@@ -8,6 +8,7 @@ from api.local import reminders
 from discord import app_commands as slash
 from discord.ext import tasks
 from enum import Enum
+from ui import ReminderOptions
 
 
 class Weekday(Enum):
@@ -37,25 +38,26 @@ class Reminder(slash.Group):
             adviser = await self.client.fetch_user(adviser_id)
             if not reminder.is_to_remind():
                 await asyncio.sleep(reminder.delay)
-            await user.send(embed=reminder.embed(user, adviser)) # TODO: Add a view
+            view = ReminderOptions(user, reminder._song)
+            await user.send(embed=reminder.embed(user, adviser), view=view)
             reminder.sent()
 
 
     @slash.command(name='enable', description='Sets reminders on')
     async def enable(self, interaction: discord.Interaction) -> None:
-        if queries.check('SELECT active FROM reminders WHERE person_id = ?;', (interaction.user.id)):
+        if queries.check('SELECT active FROM reminders WHERE person_id = ?;', (interaction.user.id,)):
             await interaction.response.send_message('Reminders are already on.')
             return 
-        queries.write('UPDATE reminders SET active = 1 WHERE person_id = ?;', (interaction.user.id))
+        queries.write('UPDATE reminders SET active = 1 WHERE person_id = ?;', (interaction.user.id,))
         await interaction.response.send_message('Reminders set on!')
 
 
     @slash.command(name='disable', description='Sets reminders off')
     async def disable(self, interaction: discord.Interaction) -> None:
-        if not queries.check('SELECT active FROM reminders WHERE person_id = ?;', (interaction.user.id)):
+        if not queries.check('SELECT active FROM reminders WHERE person_id = ?;', (interaction.user.id,)):
             await interaction.response.send_message('Reminders are already off.')
             return 
-        queries.write('UPDATE reminders SET active = 0 WHERE person_id = ?;', (interaction.user.id))
+        queries.write('UPDATE reminders SET active = 0 WHERE person_id = ?;', (interaction.user.id,))
         await interaction.response.send_message('Reminders set off!')
 
 
