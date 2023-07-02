@@ -7,7 +7,7 @@ from typing import overload
 class SongCache:
 
     data: dict[str, int]
-    path: str = 'database/cache.json'
+    path: str = 'database/cache/songs.json'
         
     @classmethod
     def add(cls, reference: str, song_id: int) -> None:
@@ -44,7 +44,7 @@ class SongCache:
 class ReminderCache:
     
     data: dict[str, list[int]]
-    path: str = 'database/reminders.json'
+    path: str = 'database/cache/reminders.json'
         
     @classmethod
     def add(cls, person_id: int, song_id: int) -> None:

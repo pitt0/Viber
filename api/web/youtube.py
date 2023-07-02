@@ -9,7 +9,7 @@ __all__ = (
     "source"
 )
 
-with open("database/options.json") as f:
+with open("settings/youtube.json") as f:
     OPTS = json.load(f)
 
 yt = YoutubeDL(OPTS)

@@ -8,7 +8,7 @@ from models.songs import Track
 from models.typing import USER
 
 
-with open('database/ffmpeg.json') as f:
+with open('settings/ffmpeg.json') as f:
     FFMPEG_OPTIONS = json.load(f)
 
 
