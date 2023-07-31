@@ -8,7 +8,6 @@ __pycache__/
 *.sqlite
 cache/
 devs.json
-temp.sql
 
 # testing
 /samples
