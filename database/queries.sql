@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS albums (
 CREATE TABLE IF NOT EXISTS songs (
     song_id         TEXT UNIQUE,
     song_title      TEXT NOT NULL,
-    song_duration   TEXT NOT NULL,
+    duration        INTEGER NOT NULL,
+    duration_string TEXT NOT NULL,
     FOREIGN KEY (song_id) REFERENCES data(data_id) ON DELETE CASCADE
 );
 
