@@ -2,11 +2,11 @@ import datetime
 
 class Time(datetime.datetime):
     
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self:%T}"
 
     @classmethod
-    def today(cls):
+    def today(cls) -> str:
         now = cls.now()
         return f"{now:%d/%m/%y}"
 

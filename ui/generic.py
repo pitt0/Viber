@@ -1,32 +1,43 @@
 import discord
 from discord.utils import MISSING
 
+from resources import Paginator
 
 
 class ResponseView(discord.ui.View):
 
     @property
-    def current(self) -> discord.Embed:
-        ...
+    def current(self) -> discord.Embed: ...
 
-    async def edit_or_respond(self, interaction: discord.Interaction, embed: discord.Embed = MISSING, view: discord.ui.View = MISSING) -> None:
+    async def edit_or_respond(
+        self,
+        interaction: discord.Interaction,
+        embed: discord.Embed = MISSING,
+        view: discord.ui.View = MISSING,
+    ) -> None:
         try:
             if interaction.response.is_done():
-                await interaction.followup.edit_message(interaction.message.id, embed=(embed or self.current), view=(view or self)) # type: ignore[non-null]
+                await interaction.followup.edit_message(interaction.message.id, embed=(embed or self.current), view=(view or self))  # type: ignore[non-null]
             else:
-                await interaction.response.edit_message(embed=(embed or self.current), view=(view or self))
+                await interaction.response.edit_message(
+                    embed=(embed or self.current), view=(view or self)
+                )
         except discord.HTTPException:
             if interaction.response.is_done():
-                await interaction.followup.send(embed=(embed or self.current), view=(view or self))
+                await interaction.followup.send(
+                    embed=(embed or self.current), view=(view or self)
+                )
             else:
-                await interaction.response.send_message(embed=(embed or self.current), view=(view or self))
+                await interaction.response.send_message(
+                    embed=(embed or self.current), view=(view or self)
+                )
 
 
 class MenuView(ResponseView):
 
-    def __init__(self, embeds: list[discord.Embed]) -> None:
+    def __init__(self, paginator: Paginator) -> None:
         super().__init__()
-        self.embeds = embeds
+        self.paginator = paginator
 
         self.index = 0
 
@@ -36,18 +47,19 @@ class MenuView(ResponseView):
 
     @index.setter
     def index(self, value: int) -> None:
-        assert (0 <= value <= len(self.embeds) - 1), f"Value set for index: {value}"
+        assert 0 <= value <= self.paginator.pages - 1, f"Value set for index: {value}"
 
         self._to_first.disabled = self.back.disabled = not value
-        self._to_last.disabled = self.forward.disabled = value == len(self.embeds) -1
+        self._to_last.disabled = self.forward.disabled = (
+            value == self.paginator.pages - 1
+        )
 
         self.__index = value
 
     @property
     def current(self) -> discord.Embed:
-        return self.embeds[self.index]
+        return self.paginator.get_current(self.index)
 
-    
     @discord.ui.button(label="<<")
     async def _to_first(self, interaction: discord.Interaction, _) -> None:
         self.index = 0
@@ -65,5 +77,6 @@ class MenuView(ResponseView):
 
     @discord.ui.button(label=">>")
     async def _to_last(self, interaction: discord.Interaction, _) -> None:
-        self.index = len(self.embeds) - 1
+        self.index = self.paginator.pages - 1
         await self.edit_or_respond(interaction)
+

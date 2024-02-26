@@ -1,79 +1,65 @@
-import aiosqlite
 import asyncio
-from resources.connections import Connection
-from typing import Iterable, Literal
+
+from api import Connection
+from api.cache import SongCache
+from models import ExternalSong, LocalSong, Song
+from typings import LocalID, NGExternalProvider
+
+from .albums import AlbumsAPI
+from .artists import ArtistsAPI
+from .tracks import TracksAPI
+
+__all__ = ("SongsAPI",)
 
 
-async def update_song(provider_id: str, provider: Literal['spotify', 'youtube'], **data) -> int:
-    async with (
-        aiosqlite.connect('database/music.sqlite') as db,
-        db.cursor() as cursor
-    ):
-        query = (
-            'INSERT INTO songs VALUES (:title, :album_id, :duration) '
-            'ON CONFLICT DO UPDATE SET duration = :duration ' # HACK forced update so it returns rowid
-            'RETURNING rowid;'
+class Links:
+
+    @staticmethod
+    def artists(song_id: LocalID) -> LocalID:
+        with Connection() as cursor:
+            cursor.execute(
+                "SELECT artist_id FROM authors WHERE data_id = ?;", (song_id,)
+            )
+            return cursor.fetchone()[0]
+
+    @staticmethod
+    def album(song_id: LocalID) -> LocalID:
+        with Connection() as cursor:
+            cursor.execute("SELECT album_id FROM tracks WHERE song_id = ?;", (song_id,))
+            return cursor.fetchone()[0]
+
+
+class SongsAPI:
+
+    @staticmethod
+    async def get_song(
+        track_id: LocalID, preferred_provider: NGExternalProvider = "spotify"
+    ) -> LocalSong:
+        # TODO: Test comment below
+        # async with asyncio.TaskGroup() as tg:
+        #     track = tg.create_task(TracksAPI.get_song(song_id, preferred_provider))
+        #     album = tg.create_task(AlbumsAPI.get_album(Links.album(song_id), preferred_provider))
+        #     artists = tg.create_task(ArtistsAPI.get_artists(Links.artists(song_id), preferred_provider))
+        #     return Song(await track, await album, await artists, preferred_provider)
+        return Song(
+            *asyncio.gather(
+                TracksAPI.get_track(track_id, preferred_provider),
+                AlbumsAPI.get_album(Links.album(track_id), preferred_provider),
+                ArtistsAPI.get_artists(Links.artists(track_id), preferred_provider),
+            ),
+            preferred_provider  # type: ignore
         )
-        await cursor.execute(query, data)
-        rowid = (await cursor.fetchone())[0] # type: ignore[non-null]
-        
-        query = (
-            f'INSERT INTO external_ids (song_id, {provider}_id) VALUES (:id, :sid) '
-            f'ON CONFLICT DO UPDATE SET {provider}_id = :sid;'
+
+    @staticmethod
+    async def upload(song: ExternalSong, query: str | None = None) -> LocalSong:
+        _song = Song(
+            *asyncio.gather(
+                TracksAPI.upload_track(song._track),
+                AlbumsAPI.upload_album(song.album),
+                ArtistsAPI.upload_artists(song.authors),
+            ),
+            song._provider  # type: ignore
         )
-        await cursor.execute(query, {'id': rowid, 'sid': provider_id})
-
-        await db.commit()
-
-    return rowid
-        
-
-async def upload_artists(provider: Literal['spotify', 'youtube'], artists: Iterable) -> list[int]:
-    async with (
-        aiosqlite.connect('database/music.sqlite') as db,
-        db.cursor() as cursor
-    ):
-        ids = []
-        query = (
-            f'INSERT INTO artists_ids (artist_name, {provider}_id) VALUES (:n, :pid) '
-            f'ON CONFLICT DO UPDATE SET {provider}_id = :pid '
-            'RETURNING rowid;'
-        )
-        for artist in artists:
-            await cursor.execute(query, {'n': artist.name, 'pid': artist.id})
-            ids.append((await cursor.fetchone())[0]) # type: ignore[non-null]
-
-        await db.commit()
-    return ids
-
-
-async def dump(id: str, provider: Literal['spotify', 'youtube'], artists: Iterable, **data) -> int:
-    results = await asyncio.gather(
-        update_song(id, provider, **data),
-        upload_artists(provider, artists)
-    )
-
-    async with (
-        aiosqlite.connect('database/music.sqlite') as db,
-        db.cursor() as cursor
-    ):
-        for artist_id in results[1]:
-            await cursor.execute('INSERT OR IGNORE INTO song_authors VALUES (?, ?);', (results[0], artist_id))
-
-        await db.commit()
-
-    return results[0]
-
-
-
-def get(id: int) -> list[tuple[str, int, str, str, str, str]]:
-    with Connection() as cursor:
-        query = (
-            'SELECT song_title, album_id, artist_name, songs.duration, external_ids.spotify_id, artists_ids.spotify_id as sp_artist_id FROM songs '
-            'INNER JOIN song_authors ON song_authors.song_id = songs.rowid '
-            'INNER JOIN external_ids ON external_ids.song_id = songs.rowid '
-            'INNER JOIN artists_ids ON song_authors.artist_id = artists_ids.rowid '
-            'WHERE songs.rowid=?;'
-        )
-        cursor.execute(query, (id,))
-        return cursor.fetchall()
+        if query:
+            SongCache.add(query, _song.id)
+        return _song

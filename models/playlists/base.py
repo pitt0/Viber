@@ -1,87 +1,74 @@
-import api.queries as queries
-import datetime
-import discord
+import calendar
 
-from .paginator import Paginator
-from .permissions import Owner, PermissionLevel
-from functools import cached_property
-from models.songs import S
-from resources import MISSING
-from typing import Self
+import dateutil.parser as dparser
+
+from resources import Privacy
+
+__all__ = ("Playlist",)
 
 
-__all__ = ('Base',)
+class Playlist:
 
-
-class Base(Paginator[S]):
-
-    __client: discord.Client
-
-    def __init__(self, id: int, title: str, target: discord.User | discord.Guild, author: discord.User, creation_date: datetime.datetime, privacy: PermissionLevel) -> None:
-        self.id = id
+    def __init__(
+        self,
+        playlist_id: str,
+        title: str,
+        guild_id: int,
+        author_id: int,
+        creation_date: str,
+        privacy: int,
+    ) -> None:
+        self.id = playlist_id
         self.title = title
-        self.target = target
-        self.author = author
-        self.creation_date = creation_date
-        self.privacy = privacy
+        self.guild_id = guild_id
+        self.author_id = author_id
+        self._creation_date = dparser.parse(creation_date)
+        self.privacy = Privacy(privacy)
 
+    @property
+    def created_on(self) -> str:
+        return self._creation_date.strftime("%d/%m/%y")
 
-    @cached_property
+    @property
     def date(self) -> str:
-        return self.creation_date.strftime('%d/%m/%y')
-
-    @cached_property
-    def upload_date(self) -> str:
-        return self.creation_date.strftime('%y-%m-%d %H:%M:%S')
-
-    def empty_embed(self) -> discord.Embed:
-        return super().empty_embed().set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
-
-    def paginate(self, index: int) -> discord.Embed:
-        _e = discord.Embed(
-            title=self.title,
-            description=f"by {self.author.display_name}",
-            color=discord.Color.blurple()
-        )
-        _e.set_footer(text=f"Page {index} of {self.pages}")
-        _e.set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
-
-        return _e
-
-    def embeds(self) -> list[discord.Embed]:
-        return super().embeds(lambda song: song.as_field)
+        # NOTE D is long day (April 10, 2023), d is short (10/4/2023)
+        return f"<t:{calendar.timegm(self._creation_date.timetuple())}:d>"
 
 
-    async def dump(self, interaction: discord.Interaction) -> None:
-        ...
+# class Base(Paginator[Song]):
 
-    @classmethod
-    async def load(cls, interaction: discord.Interaction, id: int = MISSING, title: str = MISSING, target_id: int = MISSING) -> Self:
-        ...
-    
-    async def rename(self, name: str) -> None:
-        self.title = name
-        queries.write('update playlists set playlist_title = ? where rowid = ?;', (name, self.id))
-    
-    async def delete(self) -> None:
-        queries.write('DELETE FROM playlists WHERE rowid = ?;', (self.id,))
-        queries.write('DELETE FROM playlist_songs WHERE playlist_id = ?;', (self.id,))
-        queries.write('DELETE FROM playlist_owners WHERE playlist_id = ?;', (self.id,))
+#     __client: discord.Client
 
-    async def owners(self) -> list[Owner]:
-        data = queries.read('SELECT owner_id, permission_lvl FROM playlist_owners WHERE playlist_id = ?;', (self.id,))
-        return [
-            Owner(
-                await self.__client.fetch_user(owner[0]),
-                PermissionLevel(owner[1])
-            )
-            for owner in data
-        ]
-    
-    async def add_song(self, song: S, by: int) -> None:
-        self.append(song)
-        queries.write('INSERT INTO playlist_songs (playlist_id, song_id, added_by) VALUES (?, ?, ?);', (self.id, song.id, by))
+#     def __init__(self, id: int, title: str, target: discord.User | discord.Guild, author: discord.User, creation_date: datetime.datetime, privacy: PermissionLevel) -> None:
+#         self.id = id
+#         self.title = title
+#         self.target = target
+#         self.author = author
+#         self.creation_date = creation_date
+#         self.privacy = privacy
 
-    def remove_song(self, song: S) -> None:
-        self.remove(song)
-        queries.write('DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?;', (self.id, song.id))
+
+#     def empty_embed(self) -> discord.Embed:
+#         return super().empty_embed().set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
+
+#     def paginate(self, index: int) -> discord.Embed:
+#         _e = discord.Embed(
+#             title=self.title,
+#             description=f"by {self.author.display_name}",
+#             colour=discord.Colour.blurple()
+#         )
+#         _e.set_footer(text=f"Page {index} of {self.pages}")
+#         _e.set_author(name=f'Created by {self.author.display_name}', icon_url=self.author.display_avatar)
+
+#         return _e
+
+#     def embeds(self) -> list[discord.Embed]:
+#         return super().embeds(lambda song: song.as_field)
+
+
+#     async def dump(self, interaction: discord.Interaction) -> None:
+#         ...
+
+#     @classmethod
+#     async def load(cls, interaction: discord.Interaction, id: int = MISSING, title: str = MISSING, target_id: int = MISSING) -> Self:
+#         ...

@@ -1,35 +1,42 @@
-import api.web.youtube as yt
-import api.web.genius as gl
-import discord
-
 from functools import cached_property
-from models.typing import Field
-from typing import Any, Self, Sequence
-from typing import TypeVar, TYPE_CHECKING
+
+from typings import ExternalID, ExternalProvider
+
+__all__ = ("Album", "Artist", "Track")
 
 
-if TYPE_CHECKING:
-    from .local import LocalSong
+SPOTIFY_PREFIX = "https://open.spotify.com"
+YOUTUBE_PREFIX = "https://music.youtube.com"
 
 
-__all__ = (
-    "Album",
-    "Artist",
-    "Track",
+class _Data:
 
-    "S"
-)
+    external_id: ExternalID | None
+    _provider: ExternalProvider
+
+    def __init__(
+        self, external_id: ExternalID | None, provider: ExternalProvider
+    ) -> None:
+        self.external_id = external_id
+        self._provider = provider
 
 
-S = TypeVar("S", bound="Track")
+class Artist(_Data):
 
-
-class Artist:
-
-    def __init__(self, id: Any, name: str, url: str) -> None:
-        self.id = id
+    def __init__(
+        self, name: str, external_id: ExternalID | None, _ext_provider: ExternalProvider
+    ) -> None:
+        super().__init__(external_id, _ext_provider)
         self.name = name
-        self.url = url
+
+    @cached_property
+    def url(self) -> str | None:
+        match self._provider:
+            case "youtube":
+                return f"{YOUTUBE_PREFIX}/channel/{self.external_id}"
+            case "spotify":
+                return f"{SPOTIFY_PREFIX}/artist/{self.external_id}"
+        return None
 
     def __str__(self) -> str:
         return self.name
@@ -38,115 +45,52 @@ class Artist:
     def href(self) -> str:
         return f"[{self.name}]({self.url})" if self.url else self.name
 
-    @classmethod
-    def create(cls, data: Any) -> Self:
-        raise NotImplementedError
 
+class Album(_Data):
 
-
-class Album:
-
-    def __init__(self, id: Any, name: str, authors: Sequence[Artist], thumbnail: str, release_date: str, url: str) -> None:
-        self.id = id
+    def __init__(
+        self,
+        name: str,
+        thumbnail: str,
+        release_date: str,
+        external_id: ExternalID,
+        _ext_provider: ExternalProvider,
+    ) -> None:
+        super().__init__(external_id, _ext_provider)
         self.name = name
-        self.authors = authors
         self.thumbnail = thumbnail
         self.release_date = release_date
-        self.url = url
 
-    async def dump(self) -> int:
-        raise NotImplementedError
+    @cached_property
+    def url(self) -> str | None:
+        match self._provider:
+            case "youtube":
+                return None  # f'https://music.youtube.com/???{self.external_id}'
+            case "spotify":
+                return f"{SPOTIFY_PREFIX}/album/{self.external_id}"
+        return None
 
-    @classmethod
-    def create(cls, data: Any) -> Self:
-        raise NotImplementedError
 
+class Track(_Data):
 
-
-class Track:
-
-    def __init__(self, id: Any, title: str, authors: Sequence[Artist], album: Album, duration: str, url: str) -> None:
-        self.id = id
+    def __init__(
+        self,
+        id: str,
+        title: str,
+        duration: str,
+        external_id: ExternalID,
+        _ext_provider: ExternalProvider,
+    ) -> None:
+        super().__init__(external_id, _ext_provider)
+        self._id = id
         self.title = title
-        self.author = authors[0]
-        self.artists = authors
-        self.album = album
         self.duration = duration
-        self.url = url
-
-    def __str__(self) -> str:
-        return f"{self.title} by {self.author}"
-
-    def __repr__(self) -> str:
-        return f"{self.title}#{self.id}"
-    
-    @cached_property
-    def release_date(self) -> str:
-        return self.album.release_date
 
     @cached_property
-    def as_field(self) -> Field:
-        return {"name": self.title, "value": self._embed_artists, "inline": True}
-
-    @cached_property
-    def embed(self) -> discord.Embed:
-        return discord.Embed(
-            title=self.title,
-            description=self._embed_artists,
-            color=discord.Colour.dark_purple()
-        )
-
-    @cached_property
-    def lyrics(self) -> discord.Embed:
-        song = gl.search(str(self))['hits'][0]['result']
-        return discord.Embed(
-            title=self.title,
-            description=gl.lyrics(song['id']),
-            color=discord.Colour.dark_purple()
-        )
-
-    @cached_property
-    def source(self) -> str:
-        print(f'Fetching source url of {self}') # NOTE: Log
-        song = yt.search(f"{self.author.name} {self.title}", 'songs')[0]
-        return yt.source(f"https://www.youtube.com/watch?v={song['videoId']}")
-
-    @cached_property
-    def _embed_artists(self) -> str:
-        return ", ".join(artist.href for artist in self.artists)
-    
-    async def dump(self) -> 'LocalSong':
-        raise NotImplementedError
-
-    @classmethod
-    def load(cls, id: Any) -> Self:
-        """Gets song data stored in the database."""
-        raise NotImplementedError
-
-    @classmethod
-    def create(cls, data: Any) -> Self:
-        """Creates a `Track` instance from a specific api data."""
-        raise NotImplementedError
-
-    @classmethod
-    def get(cls, url: str) -> Any:
-        """Retrieves data starting from `url` string."""
-        raise NotImplementedError
-
-    @classmethod
-    def search(cls, query: str, limit: int) -> Any:
-        """Looks any api for data of the `query`, and returns `limit` number of song data found."""
-        raise NotImplementedError
-
-    @classmethod
-    async def find(cls, query: str) -> 'LocalSong':
-        """Creates a `LocalSong` instance using either `search` or `get` and then `create`"""
-        if query.startswith('https://open.spotify.com'):
-            song = cls.create(cls.get(query))
-        else:
-            song = cls.create(cls.search(query, 1))
-        song = await song.dump()
-        return song
-
-    def exists(self) -> bool:
-        raise NotImplementedError
+    def url(self) -> str | None:
+        match self._provider:
+            case "youtube":
+                return f"{YOUTUBE_PREFIX}/watch?v={self.external_id}"
+            case "spotify":
+                return f"{SPOTIFY_PREFIX}/track/{self.external_id}"
+        return None

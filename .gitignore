@@ -1,8 +1,10 @@
+.venv
 __pycache__/
 
 # environment
 .env
 .cache
+.flake8
 
 # database
 *.sqlite
@@ -11,3 +13,7 @@ devs.json
 
 # testing
 /samples
+example.py
+
+# others
+data.csv

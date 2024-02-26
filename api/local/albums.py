@@ -1,82 +1,96 @@
-import aiosqlite
-import asyncio
-from resources.connections import Connection
-from typing import Literal, Iterable
+from sqlite3 import Cursor
+
+from api import Connection
+from api.utils import DataSearch, read_query
+from models import Album, ExternalAlbum
+from resources import Maybe
+from typings import LocalID, NGExternalProvider
+
+__all__ = ("AlbumsAPI",)
 
 
-AlbumLocalId = int
-ArtistLocalId = int
-AlbumData = tuple[AlbumLocalId, str, str, str, str, str, str]
+def album_query(query: str) -> str:
+    return read_query("sql/albums/" + query)
 
 
-async def upload_album(provider_id: str, provider: Literal['spotify', 'youtube'], **data) -> AlbumLocalId:
-    async with (
-        aiosqlite.connect('database/music.sqlite') as db,
-        db.cursor() as cursor
-    ):
-        query = (
-            'INSERT INTO albums VALUES (:name, :release_date, :thumbnail) '
-            'ON CONFLICT DO UPDATE SET thumbnail = :thumbnail RETURNING rowid;'
-        )
-        await cursor.execute(query, data)
-        rowid = (await cursor.fetchone())[0] # type: ignore[non-null]
+class AlbumsAPI:
 
-        query = (
-            f'INSERT INTO external_album_ids (album_id, {provider}_id) VALUES (:id, :pid) '
-            f'ON CONFLICT DO UPDATE SET {provider}_id = :pid;'
-        )
-        await cursor.execute(query, {'id': rowid, 'pid': provider_id})
+    @staticmethod
+    async def get_album(
+        album_id: LocalID, provider: NGExternalProvider = "spotify"
+    ) -> Maybe[Album]:
+        with Connection() as cursor:
+            query = album_query("get_data.sql")
+            cursor.execute(
+                query,
+                (
+                    f"{provider}_id",
+                    album_id,
+                ),
+            )
+        return Maybe(Album(*cursor.fetchone(), _ext_provider=provider))
 
-        await db.commit()
-    return rowid
+    @staticmethod
+    def _is_present(cursor: Cursor, album: ExternalAlbum) -> DataSearch:
+        registered = cursor.execute(
+            album_query("exists.sql"),
+            (
+                f"{album.provider}_id",
+                f"album_name='{album.name}'",
+            ),
+        ).fetchone()
+        if registered is None:
+            return DataSearch.NotFound
 
+        if len(registered) > 0:
+            return DataSearch.Found
 
-async def upload_artists(provider: Literal['spotify', 'youtube'], artists: Iterable) -> list[ArtistLocalId]:
-    async with (
-        aiosqlite.connect('database/music.sqlite') as db,
-        db.cursor() as cursor
-    ):
-        ids = []
-        query = (
-            f'INSERT INTO artists_ids (artist_name, {provider}_id) VALUES (:n, :pid) '
-            f'ON CONFLICT DO UPDATE SET {provider}_id = :pid RETURNING rowid;'
-        )
-        for artist in artists:
-            params = {'n': artist.name, 'pid': artist.id}
-            
-            await cursor.execute(query, params)
-            ids.append((await cursor.fetchone())[0]) # type: ignore[non-null]
+        return DataSearch.FoundName
 
-        await db.commit()
-    return ids
+    @classmethod
+    async def upload_album(cls, album: ExternalAlbum) -> Album:
+        # TODO: add artists
+        with Connection() as cursor:
 
+            match cls._is_present(cursor, album):
+                case DataSearch.NotFound:
+                    query = album_query("add.sql")
+                    cursor.executemany(
+                        query, (album.name, album.release_date, album.thumbnail)
+                    )
 
-async def dump(id: str, provider: Literal['spotify', 'youtube'], artists: Iterable, **data) -> int:
-    results = await asyncio.gather(
-        upload_album(id, provider, **data),
-        upload_artists(provider, artists)
-    )
+                    (album_id,) = cursor.execute(
+                        album_query("get_id.sql"), (album.name,)
+                    ).fetchone()
 
-    async with (
-        aiosqlite.connect('database/music.sqlite') as db,
-        db.cursor() as cursor
-    ):
-        for artist_id in results[1]:
-            await cursor.execute(('INSERT OR IGNORE INTO album_authors VALUES (?, ?);'), (results[0], artist_id))
+                    query = album_query(f"update_{album.provider}_id.sql")
+                    cursor.execute(query, (album.id, album.name))
 
-        await db.commit()
-    return results[0]
+                case DataSearch.DataEmpty:
+                    # Uncertain if it was found or not: there is no actual match in the `data` table but there are also some missing data
+                    query = f"SELECT FROM albums LEFT JOIN data ON album_id = data_id WHERE album_name = ? AND {album.provider}_id = NULL;"
+                    cursor.execute(query, (album.name))
+                    # TODO: Try to retrieve other provider ids and check those
+                    raise NotImplementedError
 
+                case DataSearch.FoundName:
+                    # check the number of present albums
+                    query = "SELECT COUNT(*) FROM albums;"
+                    cursor.execute(query)
+                    (n,) = cursor.fetchone()
+                    # create the album's local id based on how many albums are there
+                    # NOTE: the trigger will update the value anyways, but it will insert the same value, so it doesn't really matter
+                    album_id = f"a{n+1}"
+                    query = "INSERT INTO albums VALUES (?, ?, ?, ?);"
+                    cursor.execute(
+                        query,
+                        (album_id, album.name, album.release_date, album.thumbnail),
+                    )
 
+                case DataSearch.Found:
+                    album_id = cls._get_local_id(cursor, album.provider, album.id)
+                    assert (
+                        album_id is not None
+                    ), "`_is_present` returned `DataSearch.Found`, but local_id is `None`"
 
-def get(id: int) -> list[AlbumData]:
-    with Connection() as cursor:
-        query = (
-            'SELECT albums.rowid, album_name, artist_name, release_date, thumbnail, aext.spotify_id, artists_ids.spotify_id as sp_artist_id FROM albums '
-            'INNER JOIN external_album_ids AS aext ON aext.album_id = albums.rowid '
-            'INNER JOIN album_authors ON album_authors.album_id = albums.rowid '
-            'INNER JOIN artists_ids ON album_authors.artist_id = artists_ids.rowid '
-            'WHERE albums.rowid = ?;'
-        )
-        cursor.execute(query, (id,))
-        return cursor.fetchall()
+        return (await cls.get_album(album_id, album.provider)).unwrap()

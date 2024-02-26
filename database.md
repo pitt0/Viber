@@ -1,63 +1,69 @@
 ```mermaid
 erDiagram
-    songs }o--|| albums : in
+    data ||--o| albums : is
+    data ||--o| songs : is
+    data ||--o| artists : is
+    data ||--o| playlists : is
+    data ||--o| special : is
+
+    data {
+        string data_id
+        int genius_id
+        string spotify_id
+        string youtube_id
+    }
+
     songs {
+        string song_id
         string song_title
-        int album_id
         string duration
     }
     albums {
+        string album_id
         string album_name
         date release_date
         string thumbnail
     }
-
-    songs ||--|{ song_authors : by
-    song_authors {
-        int song_id
-        int artist_id
-    }
-    song_authors }|--|| artists_ids : is
-    artists_ids {
+    artists {
+        string artist_id
         string artist_name
-        int genius_id
-        string spotify_id
-        string youtube_id
     }
 
-    songs ||--|| external_ids : urls
-    external_ids {
-        int song_id
-        int genius_id
-        string spotify_id
-        string youtube_id
+    authors {
+        string data_id
+        string artist_id
+    }
+    tracks {
+        string song_id
+        string album_id
     }
 
-    albums ||--|{ album_authors : by
-    album_authors {
-        int album_id
-        int artist_id
-    }
-    album_authors }|--|| artists_ids : is
+    songs ||--|{ authors : by
+    authors }|--|| artists : is
 
-    albums ||--|| external_album_ids : urls
-    external_album_ids {
-        int album_id
-        int genius_id
-        string spotify_id
-        string youtube_id
-    }
+    albums ||--|{ authors : by
+    authors }|--|| artists : is
+
+    songs ||--|| tracks : in
+    tracks }|--|| albums : in
 
     playlists ||--o{ playlist_songs : contains
+    special ||--o{ playlist_songs : contains
     playlists {
+        string playlist_id
         string playlist_title
-        int target_id
+        int guild_id
         int author_id
         datetime creation_date
         int privacy
     }
+    special {
+        string playlist_id
+        string playlist_title
+        int user_id
+    }
     playlist_songs {
-        int playlist_id
+        string playlist_id
         int song_id
         datetime added_in
         int added_by
@@ -65,7 +71,7 @@ erDiagram
 
     playlists |o--|{ playlist_owners : owned_by
     playlist_owners {
-        int playlist_id
+        string playlist_id
         int owner_id
         datetime added_in
         int permission_lvl
@@ -73,9 +79,9 @@ erDiagram
 
     playlist_songs |o--|| songs : matches
 
-    playlists |o--|| reminders : has
+    special |o--|| reminders : has
     reminders {
-        int person_id
+        string playlist_id
         bool active
         int weekday
         time remind_time

@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS albums;
+
+CREATE TABLE IF NOT EXISTS albums (
+  album_id INTEGER PRIMARY KEY,
+  album_name TEXT NOT NULL,
+  release_date DATE NOT NULL,
+  thumbnail TEXT UNIQUE DEFAULT NULL,
+  spotify_id TEXT UNIQUE DEFAULT NULL,
+  youtube_id TEXT UNIQUE DEFAULT NULL
+);

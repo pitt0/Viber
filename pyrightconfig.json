@@ -1,0 +1,8 @@
+{
+    "executionEnvironments": {
+        "root": "/home/jallo/codes/python/Viber/"
+    }
+    "exclude": [
+        ".venv"
+    ]
+}

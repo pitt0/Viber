@@ -1,0 +1,2 @@
+[Spotify]
+Spotipy = { ClientID = '535c60d8363c4fbb99f38738701c56bb', ClientSecret = '79bfe7ebf39d42ecae4cf9e6e8249c27', RedirectUri = 'http://localhost:8888/callback' }
